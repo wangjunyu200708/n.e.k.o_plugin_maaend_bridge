@@ -42,6 +42,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Deque, Dict, List, Optional, Tuple
+from urllib.parse import urlsplit
 
 from . import launcher, prompts
 from .client import (
@@ -58,6 +59,12 @@ from .client import (
 )
 
 DEFAULT_BASE_URL = "http://127.0.0.1:12702"
+
+# Cached outcome of the one-time PIL import inside ``MaaendService._encode_frame``.
+# The screenshot path is polled every 2.5 s by the surface, so a missing PIL
+# must be discovered once and then replayed rather than re-imported each time.
+_PIL_ERROR: Optional[str] = None
+_PIL_CHECKED = False
 TOKEN_FILENAME = "panel_token.txt"
 PANEL_DIR_NAME = ".workbuddy"
 
@@ -451,11 +458,15 @@ class MaaendService:
         return self._client
 
     async def close(self) -> None:
-        """Cancel the watch loop and close the HTTP client."""
+        """Cancel the watch loop and the log pump, then close the client."""
         task, self._watch_task = self._watch_task, None
         if task is not None and not task.done():
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)
+        pump, self._log_task = self._log_task, None
+        if pump is not None and not pump.done():
+            pump.cancel()
+            await asyncio.gather(pump, return_exceptions=True)
         client, self._client = self._client, None
         if client is not None:
             await client.close()
@@ -587,12 +598,18 @@ class MaaendService:
             return _as_str(contenders[0].get("name")).strip(), []
         return "", contenders
 
-    async def get_status(self) -> Dict[str, Any]:
+    async def get_status(self, *, include_executor: bool = False) -> Dict[str, Any]:
         """Panel-facing snapshot. Never raises; reports failures as fields.
 
         This is what the UI context, the ``maaend_status`` entry, and every
         error hint read, so it has to answer when the panel is down as
         cheerfully as when it is up.
+
+        ``include_executor`` adds the ``launcher.describe()`` block. It is off
+        by default because the hosted panel refreshes status every few seconds
+        and ``describe`` spawns a subprocess (``import maa``); the
+        ``maaend_status`` entry turns it on, which is read rarely and only
+        while the panel is *not* connected — which is when it is useful.
         """
         snapshot: Dict[str, Any] = {
             "connected": False,
@@ -620,6 +637,8 @@ class MaaendService:
             snapshot["token_ok"] = not isinstance(exc, (MaaendAuthError, MaaendUnreachable))
             snapshot["last_error"] = exc.code
             snapshot["connected"] = await self.probe_status()
+            if include_executor:
+                snapshot["executor"] = await self.describe_executor()
             snapshot["summary"] = prompts.t(
                 "STATUS_SUMMARY",
                 lang=self._lang,
@@ -672,7 +691,300 @@ class MaaendService:
         if snapshot["elevated"] is False:
             summary += prompts.t("STATUS_NOT_ADMIN_SUFFIX", lang=self._lang)
         snapshot["summary"] = summary
+        if include_executor:
+            snapshot["executor"] = await self.describe_executor()
         return snapshot
+
+    # ==================================================================
+    # Executor launch / preview / log mirror
+    #
+    # All three talk to a process this plugin does not own and cannot
+    # substitute for: the panel runs **elevated** because Seize input needs
+    # it, and N.E.K.O does not. Every blocking call in this section
+    # (subprocess, PIL, disk) is pushed through ``asyncio.to_thread``.
+    # ==================================================================
+
+    async def describe_executor(self) -> Dict[str, Any]:
+        """``launcher.describe`` as a dict, for the panel's warning block.
+
+        Runs a subprocess (``import maa``) so it costs a few hundred
+        milliseconds — deliberately *not* folded into :meth:`get_status`,
+        which the hosted panel polls every few seconds. It has an internal
+        cache, and it is only read when the panel is not connected.
+        """
+        executor = self.executor_dir()
+        if executor is None:
+            return {
+                "executor_dir": "",
+                "executor_present": False,
+                "override_present": False,
+                "node": "",
+                "python": "",
+                "python_ok": False,
+                "python_reason": "plugin_dir not set",
+                "python_hint": "",
+                "plugin_elevated": launcher.is_elevated(),
+                "manual_launcher": "",
+            }
+        try:
+            info = await asyncio.to_thread(
+                launcher.describe, executor, configured=self._executor_python
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            self._log_warning("executor describe failed: {}", type(exc).__name__)
+            return {
+                "executor_dir": str(executor),
+                "executor_present": False,
+                "override_present": False,
+                "node": "",
+                "python": "",
+                "python_ok": False,
+                "python_reason": f"{type(exc).__name__}",
+                "python_hint": "",
+                "plugin_elevated": launcher.is_elevated(),
+                "manual_launcher": "",
+            }
+        return info if isinstance(info, dict) else {}
+
+    async def launch_panel(self) -> Dict[str, Any]:
+        """Ask Windows for an elevated panel, then wait for it to answer.
+
+        Returns ``{"summary": str, "launched": bool, "diagnostics": dict}``.
+        Raises :class:`MaaendError` only for conditions the user must fix.
+
+        Three things this deliberately gets right:
+
+        1. **Probe first.** A running panel whose status simply has not been
+           refreshed yet must not get a second one.
+        2. **Probe means ``import maa``**, not "the file exists" — see
+           :func:`launcher.probe_interpreter`.
+        3. **UAC is asynchronous.** ``ShellExecuteW`` returning ``>32`` means
+           Windows accepted the request, not that the panel is up: the user
+           may not have clicked *yes* yet. So we wait for ``/api/ping`` and, on
+           timeout, say something useful instead of reporting failure.
+        """
+        if await self.probe_status():
+            return {
+                "summary": prompts.t("LAUNCH_ALREADY_UP", lang=self._lang),
+                "launched": False,
+                "diagnostics": await self.describe_executor(),
+            }
+
+        executor = self.executor_dir()
+        if executor is None:
+            raise MaaendRejected(prompts.t("LAUNCH_NO_EXECUTOR_DIR", lang=self._lang))
+        if not (executor / "panel_server.py").is_file():
+            raise MaaendRejected(prompts.t("LAUNCH_NO_EXECUTOR_DIR", lang=self._lang))
+
+        interpreter, reason = await asyncio.to_thread(
+            launcher.resolve_interpreter,
+            configured=self._executor_python,
+            executor=executor,
+        )
+        diagnostics = await self.describe_executor()
+        if not interpreter:
+            self._last_error = "NO_INTERPRETER"
+            raise MaaendRejected(
+                prompts.t("LAUNCH_NO_INTERPRETER", lang=self._lang, reason=reason[:160])
+            )
+
+        try:
+            port = int(urlsplit(self._base_url).port or launcher.DEFAULT_PORT)
+        except (TypeError, ValueError):
+            port = launcher.DEFAULT_PORT
+
+        started, message = await asyncio.to_thread(
+            launcher.launch_elevated,
+            interpreter,
+            executor,
+            port=port,
+            maaend_dir=self._maaend_dir,
+            logger=self._logger,
+        )
+        if not started:
+            self._last_error = "LAUNCH_DECLINED"
+            raise MaaendRejected(
+                prompts.t("LAUNCH_DECLINED", lang=self._lang, reason=message[:160])
+            )
+
+        # The request was accepted; the panel exists only once it answers.
+        deadline = time.monotonic() + self._launch_timeout
+        while time.monotonic() < deadline:
+            if await asyncio.sleep(1.0, result=True) is None:  # pragma: no cover
+                pass
+            if await self.probe_status():
+                self._last_error = ""
+                return {
+                    "summary": prompts.t("LAUNCH_STARTED", lang=self._lang),
+                    "launched": True,
+                    "diagnostics": diagnostics,
+                }
+
+        self._last_error = "LAUNCH_PENDING"
+        return {
+            "summary": prompts.t("LAUNCH_PENDING", lang=self._lang),
+            "launched": True,
+            "diagnostics": diagnostics,
+        }
+
+    async def screenshot(self, max_width: Any = None) -> Dict[str, Any]:
+        """One downscaled JPEG frame of the game window, base64 inlined.
+
+        The panel's own ``/api/screenshot`` is a 1280x720 PNG of roughly
+        900 KiB — about 1.2 MB once base64'd, which is far too heavy to hand
+        back through the surface's action channel every 2.5 seconds. Resizing
+        happens **here**, not in the executor: the panel has no idea what width
+        the caller wants, and it must keep serving its own browser client at
+        full resolution.
+        """
+        width = _as_int(max_width, self._screenshot_max_width) or self._screenshot_max_width
+        width = min(1280, max(160, width))
+        token = await self._read_token()
+        if not token:
+            raise MaaendAuthError(prompts.t("ERR_NO_TOKEN", lang=self._lang))
+        client = await self._ensure_client()
+        png = await client.screenshot(token)
+        return await asyncio.to_thread(self._encode_frame, png, width)
+
+    @staticmethod
+    def _encode_frame(png: bytes, max_width: int) -> Dict[str, Any]:
+        """PNG bytes -> ``{"image": "data:image/jpeg;base64,…", …}``.
+
+        Imported lazily and the failure is cached: PIL is a hard dependency of
+        the host environment, but a missing one must not turn into a retry storm
+        from a 2.5-second loop. ``ImportError`` and the decode failure below are
+        therefore distinguished once and then replayed verbatim.
+        """
+        global _PIL_ERROR, _PIL_CHECKED
+        if _PIL_ERROR is not None:
+            raise MaaendError(_PIL_ERROR)
+        if not _PIL_CHECKED:
+            _PIL_CHECKED = True
+            try:
+                import PIL.Image  # noqa: F401
+            except Exception as exc:  # pragma: no cover - host-dependent
+                _PIL_ERROR = f"PIL unavailable: {type(exc).__name__}"
+                raise MaaendError(_PIL_ERROR) from exc
+
+        import base64
+        import io
+
+        from PIL import Image
+
+        try:
+            with Image.open(io.BytesIO(png)) as img:
+                img = img.convert("RGB")
+                if img.width > max_width:
+                    ratio = max_width / float(img.width)
+                    img = img.resize(
+                        (max_width, max(1, int(round(img.height * ratio)))),
+                        Image.LANCZOS,
+                    )
+                buf = io.BytesIO()
+                img.save(buf, format="JPEG", quality=72, optimize=True)
+                data = buf.getvalue()
+                width, height = img.size
+        except MaaendError:
+            raise
+        except Exception as exc:
+            _PIL_ERROR = f"screenshot decode failed: {type(exc).__name__}"
+            raise MaaendError(_PIL_ERROR) from exc
+
+        return {
+            "image": "data:image/jpeg;base64," + base64.b64encode(data).decode("ascii"),
+            "width": width,
+            "height": height,
+            "ts": time.time(),
+        }
+
+    def _ensure_log_pump(self) -> bool:
+        """Start the log mirror task if it is not already running.
+
+        Lazy rather than seeded from a lifecycle hook on purpose: the hook's
+        event loop is closed as soon as the hook returns, which would cancel
+        the task silently. Returns whether a stream is (now) expected.
+        """
+        if not self._log_stream_enabled:
+            return False
+        task = self._log_task
+        if task is not None and not task.done():
+            return True
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:  # pragma: no cover - no loop, no pump
+            return False
+        self._log_task = loop.create_task(self._log_pump())
+        return True
+
+    async def _log_pump(self) -> None:
+        """Mirror the panel's SSE log bus into a bounded ring buffer.
+
+        The reconnect policy lives here rather than in the client because only
+        this side can decide whether its cursor still means anything: the
+        panel's ``id`` restarts at 1 when the panel restarts, and the panel's
+        identity *is* its token — so a changed token means the cursor is void.
+        """
+        backoff = 1.0
+        while True:
+            try:
+                token = await self._read_token()
+                if not token:
+                    await asyncio.sleep(backoff)
+                    continue
+                if token != self._log_instance:
+                    # A different panel process. Everything we hold describes
+                    # the previous one, so drop it and restart numbering — the
+                    # surface sees ``since > next`` and resets its own buffer.
+                    self._log_instance = token
+                    self._log_cursor = 0
+                    self._log_seq = 0
+                    self._log_lines.clear()
+                client = await self._ensure_client()
+                async for frame in client.open_log_stream(token, since=self._log_cursor):
+                    backoff = 1.0
+                    fid = frame.get("id")
+                    if not isinstance(fid, int) or isinstance(fid, bool):
+                        continue
+                    if fid <= self._log_cursor:
+                        continue
+                    self._log_cursor = fid
+                    self._log_seq += 1
+                    self._log_lines.append(
+                        {
+                            "seq": self._log_seq,
+                            "t": _as_str(frame.get("t"))[:8],
+                            "src": _as_str(frame.get("src"))[:16] or "panel",
+                            "text": _as_str(frame.get("text"))[:500],
+                        }
+                    )
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                # The log bus is decoration: it must never take the plugin down,
+                # and it must never end this loop.
+                self._log_warning("log pump: {}: {}", type(exc).__name__, exc)
+            await asyncio.sleep(backoff)
+            backoff = min(8.0, backoff * 1.8)
+
+    def log_lines(self, since: Any = 0, limit: Any = None) -> Dict[str, Any]:
+        """Read the mirror. Synchronous — it only touches the deque.
+
+        ``seq`` is issued by this process and is monotonic for its lifetime;
+        the panel's own ``id`` is never handed back to the panel, because it
+        restarts at 1 with the panel and would silently yield an empty set.
+        A ``since`` beyond what we have issued means the surface is holding a
+        cursor from a previous plugin process, so ``reset`` tells it to drop
+        its buffer and start again.
+        """
+        cursor = max(0, _as_int(since, 0))
+        cap = min(2000, max(1, _as_int(limit, self._log_lines.maxlen or 400)))
+        reset = cursor > self._log_seq
+        lines = list(self._log_lines)
+        if reset:
+            out = lines[-cap:]
+        else:
+            out = [line for line in lines if int(line.get("seq", 0)) > cursor][-cap:]
+        return {"lines": out, "next": self._log_seq, "reset": reset}
 
     # ==================================================================
     # The task slot

@@ -151,6 +151,16 @@ class MaaendBridgePlugin(NekoPluginBase):
             logger=self.logger,
             push_message_fn=self.push_message,
         )
+        # The service locates the bundled ``executor/`` from this. Without it
+        # ``executor_dir()`` is ``None`` and the "launch executor" button has
+        # nothing to launch.
+        plugin_dir = getattr(self, "plugin_dir", None)
+        if plugin_dir:
+            self._service.set_plugin_dir(plugin_dir)
+        else:  # pragma: no cover - depends on the host's SDK surface
+            self.logger.warning(
+                "[init] plugin_dir unavailable — the executor launch button will not work"
+            )
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -349,7 +359,11 @@ class MaaendBridgePlugin(NekoPluginBase):
     )
     async def maaend_status(self, **_):
         try:
-            snapshot = await self._service.get_status()
+            # include_executor: this entry is the one the panel reads when it
+            # is *not* connected, which is exactly when the interpreter
+            # diagnostics are worth their subprocess. The 5-second status
+            # refresh in maaend_ui_context deliberately leaves it out.
+            snapshot = await self._service.get_status(include_executor=True)
             return Ok(snapshot)
         except Exception as exc:
             return Err(f"{type(exc).__name__}: {exc}")
@@ -496,6 +510,89 @@ class MaaendBridgePlugin(NekoPluginBase):
             })
         except Exception as exc:
             return Err(f"{type(exc).__name__}: {exc}")
+
+    # ------------------------------------------------------------------
+    # @ui.action — the hosted panel's three live surfaces
+    #
+    # None of these is a dialog-model tool. The panel shows all three
+    # continuously (a launch button, a 2.5 s frame loop, a 2 s log poll), and
+    # a log poll or a 30 KB base64 frame has no business in a tool schema.
+    # ------------------------------------------------------------------
+
+    @ui.action(id="maaend_launch_panel", label="启动执行器")
+    @plugin_entry(
+        id="maaend_launch_panel",
+        name="启动终末地执行器",
+        description=(
+            "让插件请求 Windows 以管理员权限启动随附的执行器，并等它接上。"
+            "执行器必须提权才能把按键喂给游戏；提权确认框由系统弹出。"
+        ),
+        llm_result_fields=["summary"],
+        input_schema={"type": "object", "properties": {}},
+    )
+    async def maaend_launch_panel(self, **_):
+        try:
+            result = await self._service.launch_panel()
+            return Ok(result)
+        except Exception as exc:
+            text, _code = self._service.failure_message(exc)
+            return Err(text)
+
+    @ui.action(id="maaend_screenshot", label="刷新画面")
+    @plugin_entry(
+        id="maaend_screenshot",
+        name="取一张终末地游戏画面",
+        description=(
+            "抓取游戏窗口当前画面并缩成小图返回，供面板右侧显示。"
+            "执行器未初始化时如实报错。"
+        ),
+        llm_result_fields=[],
+        input_schema={
+            "type": "object",
+            "properties": {
+                "max_width": {
+                    "type": "integer",
+                    "description": "可选，缩图后的最大宽度（像素）。",
+                },
+            },
+        },
+    )
+    async def maaend_screenshot(self, max_width: Any = None, **_):
+        try:
+            return Ok(await self._service.screenshot(max_width))
+        except Exception as exc:
+            text, _code = self._service.failure_message(exc)
+            return Err(text)
+
+    @ui.action(id="maaend_logs", label="拉取日志")
+    @plugin_entry(
+        id="maaend_logs",
+        name="拉取终末地执行器的运行日志",
+        description=(
+            "取执行器自上次游标之后的新日志行。游标由插件自己发号，"
+            "面板只需把返回的 next 存下来下次传回。"
+        ),
+        llm_result_fields=[],
+        input_schema={
+            "type": "object",
+            "properties": {
+                "since": {
+                    "type": "integer",
+                    "description": "上次拿到的 next；首次传 0。",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "可选，最多返回多少行。",
+                },
+            },
+        },
+    )
+    async def maaend_logs(self, since: Any = 0, limit: Any = None, **_):
+        try:
+            return Ok(self._service.log_lines(since, limit))
+        except Exception as exc:
+            text, _code = self._service.failure_message(exc)
+            return Err(text)
 
     # ------------------------------------------------------------------
     # @ui.context — the hosted panel's data source

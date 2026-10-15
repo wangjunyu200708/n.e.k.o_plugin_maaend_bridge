@@ -25,6 +25,11 @@ PLUGIN_ENTRIES = (
     "maaend_stop_task",
     "maaend_prepare",
     "maaend_reload_config",
+    # Live panel surfaces. Launch is a one-shot user action; the frame and the
+    # log are polled continuously, so none of the three belongs in a tool slot.
+    "maaend_launch_panel",
+    "maaend_screenshot",
+    "maaend_logs",
 )
 
 

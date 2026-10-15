@@ -264,6 +264,20 @@ def launch_elevated(
     return True, ""
 
 
+def manual_launcher_path(executor: Path) -> str:
+    """The batch file a user can double-click, or ``""`` when absent.
+
+    Shown next to the plugin's own "launch" button so that a user whose UAC
+    prompt never appeared (a policy that blocks elevation, a remote session)
+    has a concrete next step instead of only an error.
+    """
+    candidate = Path(executor) / "start_panel.bat"
+    try:
+        return str(candidate) if candidate.is_file() else ""
+    except OSError:
+        return ""
+
+
 def describe(executor: Path, *, configured: str = "") -> dict:
     """A diagnostics blob for the plugin panel. Never raises."""
     info: dict = {
@@ -275,6 +289,7 @@ def describe(executor: Path, *, configured: str = "") -> dict:
         "python_ok": False,
         "python_reason": "",
         "plugin_elevated": is_elevated(),
+        "manual_launcher": manual_launcher_path(executor),
     }
     try:
         interpreter, reason = resolve_interpreter(configured=configured, executor=Path(executor))
@@ -295,6 +310,7 @@ __all__ = [
     "hint_file_path",
     "is_elevated",
     "launch_elevated",
+    "manual_launcher_path",
     "probe_interpreter",
     "read_python_hint",
     "resolve_interpreter",

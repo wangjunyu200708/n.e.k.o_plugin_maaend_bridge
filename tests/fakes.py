@@ -74,6 +74,9 @@ class FakePanelClient:
         self.ping_result = True
         self.calls: List[tuple] = []
         self.default_status: Dict[str, Any] = ready_status()
+        # Live-panel surfaces: the frame and the log bus.
+        self.screenshot_response: Any = b""
+        self.log_frames: List[Dict[str, Any]] = []
 
     # -- scripted endpoints -------------------------------------------
 
@@ -123,6 +126,19 @@ class FakePanelClient:
         if isinstance(self.stop_response, BaseException):
             raise self.stop_response
         return dict(self.stop_response)
+
+    async def screenshot(self, token: str) -> bytes:
+        self.calls.append(("screenshot", token))
+        if isinstance(self.screenshot_response, BaseException):
+            raise self.screenshot_response
+        return self.screenshot_response
+
+    async def open_log_stream(self, token: str, *, since: int = 0):
+        """Yield the scripted frames once, then end (the service reconnects)."""
+        self.calls.append(("open_log_stream", token, since))
+        for frame in self.log_frames:
+            if isinstance(frame.get("id"), int) and frame["id"] > since:
+                yield frame
 
 
 def ready_status(**overrides: Any) -> Dict[str, Any]:

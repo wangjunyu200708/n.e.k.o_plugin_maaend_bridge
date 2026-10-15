@@ -377,6 +377,76 @@ PROMPTS: Dict[str, Dict[str, str]] = {
         "es": " (No tiene privilegios, así que la entrada al juego no surtirá efecto).",
         "pt": " (Ele não está elevado, então a entrada no jogo não terá efeito.)",
     },
+    # ------------------------------------------------------------------
+    # Launching the executor (panel entry — the panel shows these verbatim,
+    # so they are written for a person, not for the model)
+    # ------------------------------------------------------------------
+    "LAUNCH_ALREADY_UP": {
+        "zh": "执行器已经在跑了。",
+        "zh-TW": "執行器已經在跑了。",
+        "en": "The executor is already running.",
+        "ja": "実行器はすでに起動しています。",
+        "ko": "실행기가 이미 실행 중이에요.",
+        "ru": "Исполнитель уже запущен.",
+        "es": "El ejecutor ya está en marcha.",
+        "pt": "O executor já está rodando.",
+    },
+    "LAUNCH_NO_EXECUTOR_DIR": {
+        "zh": "没找到随插件附带的执行器目录，请确认插件安装完整。",
+        "zh-TW": "沒找到隨外掛附帶的執行器目錄，請確認外掛安裝完整。",
+        "en": (
+            "The executor that ships with the plugin was not found — the install"
+            " looks incomplete."
+        ),
+        "ja": "プラグイン同梱の実行器が見つかりません。インストールが不完全なようです。",
+        "ko": "플러그인에 동봉된 실행기를 찾을 수 없어요. 설치가 불완전한 것 같아요.",
+        "ru": "Исполнитель, поставляемый с плагином, не найден — установка неполная.",
+        "es": "No se encontró el ejecutor incluido con el plugin; la instalación parece incompleta.",
+        "pt": "Não encontrei o executor que vem com o plugin; a instalação parece incompleta.",
+    },
+    "LAUNCH_NO_INTERPRETER": {
+        "zh": "没找到装有 MaaFramework 的 Python。{reason}",
+        "zh-TW": "沒找到裝有 MaaFramework 的 Python。{reason}",
+        "en": "No Python with MaaFramework installed was found. {reason}",
+        "ja": "MaaFramework が入った Python が見つかりません。{reason}",
+        "ko": "MaaFramework가 설치된 Python을 찾지 못했어요. {reason}",
+        "ru": "Не найден Python с установленным MaaFramework. {reason}",
+        "es": "No se encontró un Python con MaaFramework instalado. {reason}",
+        "pt": "Nenhum Python com MaaFramework instalado foi encontrado. {reason}",
+    },
+    "LAUNCH_DECLINED": {
+        "zh": "没能拉起提权进程。{reason}",
+        "zh-TW": "沒能拉起權限提升的進程。{reason}",
+        "en": "The elevated process could not be started. {reason}",
+        "ja": "管理者権限のプロセスを起動できませんでした。{reason}",
+        "ko": "관리자 권한 프로세스를 시작하지 못했어요. {reason}",
+        "ru": "Не удалось запустить процесс с повышенными правами. {reason}",
+        "es": "No se pudo iniciar el proceso con privilegios. {reason}",
+        "pt": "Não consegui iniciar o processo elevado. {reason}",
+    },
+    "LAUNCH_STARTED": {
+        "zh": "执行器起来了，正在连上游戏窗口。",
+        "zh-TW": "執行器起來了，正在連上遊戲視窗。",
+        "en": "The executor is up and connecting to the game window.",
+        "ja": "実行器が起動しました。ゲームウィンドウに接続しています。",
+        "ko": "실행기가 떴고, 게임 창에 연결하는 중이에요.",
+        "ru": "Исполнитель запущен и подключается к окну игры.",
+        "es": "El ejecutor arrancó y se está conectando a la ventana del juego.",
+        "pt": "O executor subiu e está conectando à janela do jogo.",
+    },
+    "LAUNCH_PENDING": {
+        "zh": "已经请求了管理员权限。如果屏幕上还弹着授权窗口，请点「是」——不点的话执行器不会启动。",
+        "zh-TW": "已經請求了系統管理員權限。如果螢幕上還彈著授權視窗，請點「是」——不點的話執行器不會啟動。",
+        "en": (
+            "Administrator rights have been requested. If an authorisation window is"
+            " still on screen, click *yes* — without that the executor will not start."
+        ),
+        "ja": "管理者権限を要求しました。画面に承認ウィンドウが残っていたら「はい」を押してください。押さないと実行器は起動しません。",
+        "ko": "관리자 권한을 요청했어요. 화면에 승인 창이 남아 있으면 '예'를 눌러 주세요. 누르지 않으면 실행기가 시작되지 않아요.",
+        "ru": "Запрошены права администратора. Если окно подтверждения ещё на экране, нажмите «Да» — иначе исполнитель не запустится.",
+        "es": "Se han solicitado permisos de administrador. Si sigue apareciendo una ventana de autorización, haz clic en *sí*; si no, el ejecutor no arrancará.",
+        "pt": "Foram solicitadas permissões de administrador. Se a janela de autorização ainda estiver na tela, clique em *sim* — sem isso o executor não sobe.",
+    },
     "LABEL_IDLE_TASK": {
         "zh": "空闲",
         "zh-TW": "空閒",
