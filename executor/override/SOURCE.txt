@@ -1,0 +1,24 @@
+# 复用自 MXU 前端的文件清单
+
+本目录下的 TypeScript 文件**不是本项目写的**，是从 MXU 前端原样复制的。
+option -> pipeline_override 的编译逻辑以此保证与官方前端一致。
+
+- 来源仓库: `E:\MaaEnddm\MXU-2.7.1\MXU-2.7.1`
+- MXU 版本: `MXU-2.7.1`（package.json 为占位值 `0.1.0`）
+- 记录时间: `2026-10-15 20:01:11`
+
+| 文件 | 处理方式 | 行数 | sha256(前16位) |
+|---|---|---|---|
+| `src/utils/pipelineOverride.ts` | 原样复用 | 692 | `963aba356ae8847b` |
+| `src/utils/optionHelpers.ts` | 原样复用 | 25 | `545287d6586c6761` |
+| `src/types/specialTasks.ts` | 原样复用（仅 import type） | 705 | `480e80fae0a8a559` |
+| `src/stores/helpers.ts` | 原样复用（仅 import type） | 253 | `83ef34b13a13ce8a` |
+| `src/utils/logger.ts` | 替换为 stub（依赖 loglevel + Tauri paths） | 204 | `0e4436541b400e5b` |
+
+## 升级 MXU 时的流程
+
+1. 重新拷贝前 4 个文件到本目录（`logger.ts` 继续用 stub）
+2. 重跑 sed 改写：`@/` 别名 -> 相对路径；`import './x'` -> `import './x.ts'`（ESM 必须带扩展名）
+3. `python golden_test.py --update` 重新生成快照
+4. **人工 review 差异** —— 这就是上游带来的行为变化，不是回归
+5. 重跑 `python gen_source.py` 更新本文件的哈希

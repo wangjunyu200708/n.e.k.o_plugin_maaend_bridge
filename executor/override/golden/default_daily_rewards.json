@@ -1,0 +1,247 @@
+{
+  "case": "default_daily_rewards",
+  "task": "DailyRewards",
+  "options": {},
+  "array_form": [
+    {
+      "EnterCameraModeLongPress": {
+        "key": 82
+      },
+      "EnterCameraModeKeyUp": {
+        "key": 82
+      },
+      "_AutoEcoFarmEnterCameraModeFallback": {
+        "key": 82
+      },
+      "_AutoEcoFarmEnterCameraModeFallbackRelease": {
+        "key": 82
+      },
+      "_AutoEcoFarmEnterCameraModeFallbackReleaseOnError": {
+        "key": 82
+      },
+      "AutoCollectClick": {
+        "key": 70
+      },
+      "MapNavigatorInteract": {
+        "key": 70
+      },
+      "AutoSellPressStockRedistribution": {
+        "key": 70
+      },
+      "AutoPickFalls": {
+        "key": 70
+      },
+      "AutoPickInteractive": {
+        "key": 70
+      },
+      "ProtocolSpaceTouchExitTouch": {
+        "key": 70
+      },
+      "ProtocolSpaceTouchExitTouchRetry": {
+        "key": 70
+      }
+    },
+    {
+      "__AutoFightActionComboClick": {
+        "key": 69
+      },
+      "__AutoFightActionSkillOperators1": {
+        "key": 49
+      },
+      "__AutoFightActionSkillOperators2": {
+        "key": 50
+      },
+      "__AutoFightActionSkillOperators3": {
+        "key": 51
+      },
+      "__AutoFightActionSkillOperators4": {
+        "key": 52
+      },
+      "__AutoFightActionEndSkillOperators1": {
+        "key": 49
+      },
+      "__AutoFightActionEndSkillOperators2": {
+        "key": 50
+      },
+      "__AutoFightActionEndSkillOperators3": {
+        "key": 51
+      },
+      "__AutoFightActionEndSkillOperators4": {
+        "key": 52
+      },
+      "__AutoFightActionSwitchCharacterOperators1": {
+        "key": 112
+      },
+      "__AutoFightActionSwitchCharacterOperators2": {
+        "key": 113
+      },
+      "__AutoFightActionSwitchCharacterOperators3": {
+        "key": 114
+      },
+      "__AutoFightActionSwitchCharacterOperators4": {
+        "key": 115
+      }
+    },
+    {
+      "MapNavigatorZiplinePreference": {
+        "attach": {
+          "zipline": "auto"
+        }
+      }
+    },
+    {
+      "DailyEmailRewardSub": {
+        "enabled": true
+      }
+    },
+    {
+      "DailyTaskRewardSub": {
+        "enabled": true
+      }
+    },
+    {
+      "DailyTaskUpgradeWeapon": {
+        "enabled": false
+      }
+    },
+    {
+      "DailyTaskCreation": {
+        "enabled": false
+      }
+    },
+    {
+      "DailyTaskAssemble": {
+        "enabled": false
+      }
+    },
+    {
+      "DailyTaskLevelUpOperator": {
+        "enabled": false
+      }
+    },
+    {
+      "DailyClaimDeliveryJobsRewardSub": {
+        "enabled": true
+      }
+    },
+    {
+      "DailyEventRewardSub": {
+        "enabled": true
+      }
+    },
+    {
+      "DailyProtocolPassRewardSub": {
+        "enabled": true
+      }
+    }
+  ],
+  "merged_form": {
+    "EnterCameraModeLongPress": {
+      "key": 82
+    },
+    "EnterCameraModeKeyUp": {
+      "key": 82
+    },
+    "_AutoEcoFarmEnterCameraModeFallback": {
+      "key": 82
+    },
+    "_AutoEcoFarmEnterCameraModeFallbackRelease": {
+      "key": 82
+    },
+    "_AutoEcoFarmEnterCameraModeFallbackReleaseOnError": {
+      "key": 82
+    },
+    "AutoCollectClick": {
+      "key": 70
+    },
+    "MapNavigatorInteract": {
+      "key": 70
+    },
+    "AutoSellPressStockRedistribution": {
+      "key": 70
+    },
+    "AutoPickFalls": {
+      "key": 70
+    },
+    "AutoPickInteractive": {
+      "key": 70
+    },
+    "ProtocolSpaceTouchExitTouch": {
+      "key": 70
+    },
+    "ProtocolSpaceTouchExitTouchRetry": {
+      "key": 70
+    },
+    "__AutoFightActionComboClick": {
+      "key": 69
+    },
+    "__AutoFightActionSkillOperators1": {
+      "key": 49
+    },
+    "__AutoFightActionSkillOperators2": {
+      "key": 50
+    },
+    "__AutoFightActionSkillOperators3": {
+      "key": 51
+    },
+    "__AutoFightActionSkillOperators4": {
+      "key": 52
+    },
+    "__AutoFightActionEndSkillOperators1": {
+      "key": 49
+    },
+    "__AutoFightActionEndSkillOperators2": {
+      "key": 50
+    },
+    "__AutoFightActionEndSkillOperators3": {
+      "key": 51
+    },
+    "__AutoFightActionEndSkillOperators4": {
+      "key": 52
+    },
+    "__AutoFightActionSwitchCharacterOperators1": {
+      "key": 112
+    },
+    "__AutoFightActionSwitchCharacterOperators2": {
+      "key": 113
+    },
+    "__AutoFightActionSwitchCharacterOperators3": {
+      "key": 114
+    },
+    "__AutoFightActionSwitchCharacterOperators4": {
+      "key": 115
+    },
+    "MapNavigatorZiplinePreference": {
+      "attach": {
+        "zipline": "auto"
+      }
+    },
+    "DailyEmailRewardSub": {
+      "enabled": true
+    },
+    "DailyTaskRewardSub": {
+      "enabled": true
+    },
+    "DailyTaskUpgradeWeapon": {
+      "enabled": false
+    },
+    "DailyTaskCreation": {
+      "enabled": false
+    },
+    "DailyTaskAssemble": {
+      "enabled": false
+    },
+    "DailyTaskLevelUpOperator": {
+      "enabled": false
+    },
+    "DailyClaimDeliveryJobsRewardSub": {
+      "enabled": true
+    },
+    "DailyEventRewardSub": {
+      "enabled": true
+    },
+    "DailyProtocolPassRewardSub": {
+      "enabled": true
+    }
+  }
+}

@@ -1,0 +1,45 @@
+{
+    "task": [
+        {
+            "name": "WebEvent202605",
+            "label": "$task.WebEvent202605.label",
+            "entry": "WebEvent202605_Entry",
+            "description": "$task.WebEvent202605.description",
+            "group": [
+                "other_menu"
+            ],
+            "controller": [
+                "Win32-Front"
+            ],
+            "option": [
+                "WebEvent202605MaxShot"
+            ]
+        }
+    ],
+    "option": {
+        "WebEvent202605MaxShot": {
+            "type": "input",
+            "label": "$option.WebEvent202605MaxShot.label",
+            "inputs": [
+                {
+                    "name": "MaxShot",
+                    "label": "$option.WebEvent202605MaxShot.inputs.MaxShot.label",
+                    "default": "25",
+                    "pipeline_type": "int",
+                    "verify": "^(?:[1-9]\\d{0,3})$"
+                }
+            ],
+            "pipeline_override": {
+                "WebEvent202605_Action": {
+                    "action": {
+                        "param": {
+                            "custom_action_param": {
+                                "max_shot": "{MaxShot}"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

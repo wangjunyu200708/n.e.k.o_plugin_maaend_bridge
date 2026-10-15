@@ -1,2 +1,15 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# ── 自带执行器：上游资产按字节原样保管 ──────────────────────────────
+# maaend/SOURCE.txt 与 override/SOURCE.txt 记的是这些文件的 sha256。
+# git 的行尾规范化会改写 checkout 出来的字节，于是校验永远报漂移，
+# 而"原样分发、未修改"这句话也就不成立了。资源层里还混着 .onnx / .gz /
+# .exe 这类二进制，一并免掉探测更省事。
+executor/maaend/** -text
+executor/override/*.ts -text
+executor/override/golden/*.json -text
+
+# 批处理必须 CRLF（executor/fix_bat.py 就是干这个的），而 -text 会原样保留
+# 我写进仓库的 LF——cmd.exe 对 LF 结尾的 .bat 在某些分支上会误解析。
+executor/*.bat text eol=crlf

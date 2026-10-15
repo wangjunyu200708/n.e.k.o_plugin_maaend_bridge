@@ -1,0 +1,236 @@
+{
+  "case": "stockpile_min_buy",
+  "task": "AutoStockpile",
+  "options": {
+    "AutoStockpileMinBuy": {
+      "type": "switch",
+      "value": true
+    }
+  },
+  "array_form": [
+    {
+      "EnterCameraModeLongPress": {
+        "key": 82
+      },
+      "EnterCameraModeKeyUp": {
+        "key": 82
+      },
+      "_AutoEcoFarmEnterCameraModeFallback": {
+        "key": 82
+      },
+      "_AutoEcoFarmEnterCameraModeFallbackRelease": {
+        "key": 82
+      },
+      "_AutoEcoFarmEnterCameraModeFallbackReleaseOnError": {
+        "key": 82
+      },
+      "AutoCollectClick": {
+        "key": 70
+      },
+      "MapNavigatorInteract": {
+        "key": 70
+      },
+      "AutoSellPressStockRedistribution": {
+        "key": 70
+      },
+      "AutoPickFalls": {
+        "key": 70
+      },
+      "AutoPickInteractive": {
+        "key": 70
+      },
+      "ProtocolSpaceTouchExitTouch": {
+        "key": 70
+      },
+      "ProtocolSpaceTouchExitTouchRetry": {
+        "key": 70
+      }
+    },
+    {
+      "__AutoFightActionComboClick": {
+        "key": 69
+      },
+      "__AutoFightActionSkillOperators1": {
+        "key": 49
+      },
+      "__AutoFightActionSkillOperators2": {
+        "key": 50
+      },
+      "__AutoFightActionSkillOperators3": {
+        "key": 51
+      },
+      "__AutoFightActionSkillOperators4": {
+        "key": 52
+      },
+      "__AutoFightActionEndSkillOperators1": {
+        "key": 49
+      },
+      "__AutoFightActionEndSkillOperators2": {
+        "key": 50
+      },
+      "__AutoFightActionEndSkillOperators3": {
+        "key": 51
+      },
+      "__AutoFightActionEndSkillOperators4": {
+        "key": 52
+      },
+      "__AutoFightActionSwitchCharacterOperators1": {
+        "key": 112
+      },
+      "__AutoFightActionSwitchCharacterOperators2": {
+        "key": 113
+      },
+      "__AutoFightActionSwitchCharacterOperators3": {
+        "key": 114
+      },
+      "__AutoFightActionSwitchCharacterOperators4": {
+        "key": 115
+      }
+    },
+    {
+      "MapNavigatorZiplinePreference": {
+        "attach": {
+          "zipline": "auto"
+        }
+      }
+    },
+    {
+      "AutoStockpileAttach": {
+        "attach": {
+          "server_time": 8
+        }
+      }
+    },
+    {
+      "AutoStockpileAttach": {
+        "attach": {
+          "allow_data_upload": true
+        }
+      },
+      "AutoStockpileEnterRegionalDevelopment": {
+        "enabled": true
+      },
+      "AutoStockpileGetUid": {
+        "enabled": true
+      }
+    },
+    {
+      "AutoStockpileElasticValleyIV": {
+        "enabled": true
+      }
+    },
+    {
+      "AutoStockpileElasticWuling": {
+        "enabled": true
+      }
+    },
+    {
+      "AutoStockpileAttach": {
+        "attach": {
+          "min_buy": true
+        }
+      }
+    }
+  ],
+  "merged_form": {
+    "EnterCameraModeLongPress": {
+      "key": 82
+    },
+    "EnterCameraModeKeyUp": {
+      "key": 82
+    },
+    "_AutoEcoFarmEnterCameraModeFallback": {
+      "key": 82
+    },
+    "_AutoEcoFarmEnterCameraModeFallbackRelease": {
+      "key": 82
+    },
+    "_AutoEcoFarmEnterCameraModeFallbackReleaseOnError": {
+      "key": 82
+    },
+    "AutoCollectClick": {
+      "key": 70
+    },
+    "MapNavigatorInteract": {
+      "key": 70
+    },
+    "AutoSellPressStockRedistribution": {
+      "key": 70
+    },
+    "AutoPickFalls": {
+      "key": 70
+    },
+    "AutoPickInteractive": {
+      "key": 70
+    },
+    "ProtocolSpaceTouchExitTouch": {
+      "key": 70
+    },
+    "ProtocolSpaceTouchExitTouchRetry": {
+      "key": 70
+    },
+    "__AutoFightActionComboClick": {
+      "key": 69
+    },
+    "__AutoFightActionSkillOperators1": {
+      "key": 49
+    },
+    "__AutoFightActionSkillOperators2": {
+      "key": 50
+    },
+    "__AutoFightActionSkillOperators3": {
+      "key": 51
+    },
+    "__AutoFightActionSkillOperators4": {
+      "key": 52
+    },
+    "__AutoFightActionEndSkillOperators1": {
+      "key": 49
+    },
+    "__AutoFightActionEndSkillOperators2": {
+      "key": 50
+    },
+    "__AutoFightActionEndSkillOperators3": {
+      "key": 51
+    },
+    "__AutoFightActionEndSkillOperators4": {
+      "key": 52
+    },
+    "__AutoFightActionSwitchCharacterOperators1": {
+      "key": 112
+    },
+    "__AutoFightActionSwitchCharacterOperators2": {
+      "key": 113
+    },
+    "__AutoFightActionSwitchCharacterOperators3": {
+      "key": 114
+    },
+    "__AutoFightActionSwitchCharacterOperators4": {
+      "key": 115
+    },
+    "MapNavigatorZiplinePreference": {
+      "attach": {
+        "zipline": "auto"
+      }
+    },
+    "AutoStockpileAttach": {
+      "attach": {
+        "server_time": 8,
+        "allow_data_upload": true,
+        "min_buy": true
+      }
+    },
+    "AutoStockpileEnterRegionalDevelopment": {
+      "enabled": true
+    },
+    "AutoStockpileGetUid": {
+      "enabled": true
+    },
+    "AutoStockpileElasticValleyIV": {
+      "enabled": true
+    },
+    "AutoStockpileElasticWuling": {
+      "enabled": true
+    }
+  }
+}
