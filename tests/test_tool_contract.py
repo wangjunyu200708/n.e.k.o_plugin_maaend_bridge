@@ -48,6 +48,115 @@ def test_the_ui_context_provider_exists(plugin_module):
 
 
 # ---------------------------------------------------------------------------
+# What the *real* SDK registered.
+#
+# These run only where the host SDK is importable (the source tree, or the
+# release check); under the standalone stub they are skipped, because the stub
+# decorators are identity functions and have no metadata to inspect.
+#
+# They are worth having anyway: a ``@lifecycle`` id outside the legal set is
+# **silently never called** — no error, no log line — so a typo there produces
+# a plugin that looks fine and never initialises.
+# ---------------------------------------------------------------------------
+
+
+def _real_sdk() -> bool:
+    from plugin.sdk.plugin import NekoPluginBase
+
+    return hasattr(NekoPluginBase, "collect_entries")
+
+
+needs_real_sdk = pytest.mark.skipif(
+    not _real_sdk(), reason="host SDK unavailable (standalone stub in use)"
+)
+
+LEGAL_LIFECYCLE_IDS = {"startup", "shutdown", "reload", "freeze", "unfreeze", "config_change"}
+
+
+def _metadata(cls):
+    from plugin.sdk.plugin.llm_tool import LLM_TOOL_META_ATTR
+    from plugin.sdk.plugin.ui import UI_ACTION_META_ATTR, UI_CONTEXT_META_ATTR
+    from plugin.sdk.shared.constants import EVENT_META_ATTR
+
+    found = {"tools": [], "entries": [], "actions": [], "contexts": [], "lifecycles": []}
+    for member in vars(cls).values():
+        if not callable(member):
+            continue
+        tool = getattr(member, LLM_TOOL_META_ATTR, None)
+        if tool is not None:
+            found["tools"].append(tool)
+        event = getattr(member, EVENT_META_ATTR, None)
+        if event is not None:
+            entry_id = event.get("id") if isinstance(event, dict) else getattr(event, "id", None)
+            kind = event.get("kind") if isinstance(event, dict) else getattr(event, "kind", None)
+            if kind == "lifecycle" or str(entry_id) in LEGAL_LIFECYCLE_IDS:
+                found["lifecycles"].append(str(entry_id))
+            else:
+                found["entries"].append(str(entry_id))
+        action = getattr(member, UI_ACTION_META_ATTR, None)
+        if action is not None:
+            found["actions"].append(action)
+        context = getattr(member, UI_CONTEXT_META_ATTR, None)
+        if context is not None:
+            found["contexts"].append(context)
+    return found
+
+
+@needs_real_sdk
+def test_the_real_sdk_receives_both_llm_tools(plugin_module):
+    tools = {tool.name: tool for tool in _metadata(plugin_module.MaaendBridgePlugin)["tools"]}
+    assert set(tools) == set(LLM_TOOLS)
+    assert set(tools["maaend_run"].parameters["properties"]) == {"task", "timeout_minutes"}
+    # The wrapper ceiling must sit above anything the handler can take.
+    assert tools["maaend_run"].timeout_seconds >= 300.0
+
+
+@needs_real_sdk
+def test_the_real_sdk_receives_every_plugin_entry(plugin_module):
+    found = _metadata(plugin_module.MaaendBridgePlugin)
+    assert set(found["entries"]) == set(PLUGIN_ENTRIES)
+
+
+@needs_real_sdk
+def test_every_lifecycle_id_is_one_the_host_actually_dispatches(plugin_module):
+    found = _metadata(plugin_module.MaaendBridgePlugin)["lifecycles"]
+    assert found, "no lifecycle hook registered at all"
+    assert set(found) <= LEGAL_LIFECYCLE_IDS, f"illegal ids (never called): {found}"
+
+
+@needs_real_sdk
+def test_the_panel_surface_id_has_a_matching_context_provider(plugin_module):
+    """``plugin.toml``'s ``context`` and the ``@ui.context`` id must agree."""
+    import tomllib
+    from pathlib import Path
+
+    root = Path(plugin_module.__file__).resolve().parent
+    manifest = tomllib.loads((root / "plugin.toml").read_text(encoding="utf-8"))
+    declared = {
+        surface["context"]
+        for surface in manifest["plugin"]["ui"]["guide"]
+        if "context" in surface
+    }
+    provided = {
+        context.get("id") if isinstance(context, dict) else getattr(context, "id", None)
+        for context in _metadata(plugin_module.MaaendBridgePlugin)["contexts"]
+    }
+    assert declared <= provided, f"plugin.toml declares {declared}, provider offers {provided}"
+
+
+@needs_real_sdk
+def test_every_panel_button_maps_to_a_registered_action(plugin_module):
+    found = _metadata(plugin_module.MaaendBridgePlugin)
+    action_ids = {
+        action.get("id") if isinstance(action, dict) else getattr(action, "id", None)
+        for action in found["actions"]
+    }
+    # Every action must also be reachable as a plugin entry, or the hosted
+    # panel's api.call would fail with "entry not found".
+    assert action_ids <= set(found["entries"]), f"actions without an entry: {action_ids - set(found['entries'])}"
+
+
+# ---------------------------------------------------------------------------
 # Tool schemas — the contract the model is handed.
 # ---------------------------------------------------------------------------
 
