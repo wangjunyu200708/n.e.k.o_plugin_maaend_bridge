@@ -38,11 +38,12 @@ import asyncio
 import os
 import re
 import time
+from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Deque, Dict, List, Optional, Tuple
 
-from . import prompts
+from . import launcher, prompts
 from .client import (
     MaaendAuthError,
     MaaendClient,
@@ -255,10 +256,14 @@ class MaaendService:
         *,
         logger: Any = None,
         push_message_fn: Optional[Callable[..., Any]] = None,
+        plugin_dir: Optional[Path] = None,
     ) -> None:
         self._logger = logger
         self._push_message = push_message_fn
         self._lang = prompts.DEFAULT_LANG
+        # Where the bundled executor lives (``<plugin>/executor``). Supplied by
+        # the facade; only used to locate and launch the panel, never imported.
+        self._plugin_dir = Path(plugin_dir) if plugin_dir else None
 
         self._base_url = DEFAULT_BASE_URL
         self._panel_dir = ""
@@ -270,6 +275,17 @@ class MaaendService:
         self._max_timeout_minutes = 120
         self._task_wait_timeout = 3600.0
         self._progress_min_interval = 10.0
+
+        # Executor launch / diagnostics / preview / log mirror.
+        # ``_maaend_dir`` empty means "let the panel use the asset layer it
+        # ships with" (``executor/maaend``) — the plugin only passes
+        # ``--maaend-dir`` when someone deliberately points it elsewhere.
+        self._maaend_dir = ""
+        self._executor_python = ""
+        self._launch_timeout = 90.0
+        self._screenshot_max_width = 560
+        self._log_buffer_lines = 400
+        self._log_stream_enabled = True
 
         self._client: Optional[MaaendClient] = None
         self._stale_clients: List[MaaendClient] = []
@@ -283,6 +299,28 @@ class MaaendService:
         self._catalogue_at = 0.0
         self._last_status: Dict[str, Any] = {}
         self._last_error = ""
+
+        # Log mirror. ``seq`` is *ours* and monotonic for the life of this
+        # plugin process; the panel's own ``id`` restarts at 1 whenever the
+        # panel process restarts, so it cannot be a cursor the panel hands back
+        # to us. Kept separate from the task channel on purpose: two consumers
+        # sharing one "instance id" would eat each other's restart signal.
+        self._log_lines: Deque[Dict[str, Any]] = deque(maxlen=400)
+        self._log_seq = 0
+        self._log_instance = ""
+        self._log_cursor = 0
+        self._log_task: Optional[asyncio.Task] = None
+        self._log_streaming = False
+
+    def set_plugin_dir(self, plugin_dir: Any) -> None:
+        """Where the bundled ``executor/`` sits. Called once by the facade."""
+        if plugin_dir:
+            self._plugin_dir = Path(plugin_dir)
+
+    def executor_dir(self) -> Optional[Path]:
+        if self._plugin_dir is None:
+            return None
+        return launcher.executor_dir(self._plugin_dir)
 
     # ==================================================================
     # Configuration
@@ -337,6 +375,23 @@ class MaaendService:
         self._progress_min_interval = max(
             0.0, _as_float(section.get("progress_min_interval_seconds"), 10.0)
         )
+
+        # Empty means "use the asset layer shipped inside the plugin".
+        self._maaend_dir = _as_str(section.get("maaend_dir")).strip()
+        self._executor_python = _as_str(section.get("executor_python")).strip()
+        self._launch_timeout = min(
+            300.0, max(10.0, _as_float(section.get("panel_launch_timeout_seconds"), 90.0))
+        )
+        self._screenshot_max_width = min(
+            1280, max(160, _as_int(section.get("screenshot_max_width"), 560))
+        )
+        lines = min(5000, max(50, _as_int(section.get("log_buffer_lines"), 400)))
+        if lines != self._log_lines.maxlen:
+            # Rebuild rather than resize: ``deque`` has no resize, and dropping
+            # the oldest is exactly what a smaller cap means anyway.
+            kept = list(self._log_lines)[-lines:]
+            self._log_lines = deque(kept, maxlen=lines)
+        self._log_stream_enabled = _as_bool(section.get("log_stream_enabled"), True)
 
     # ==================================================================
     # Transport plumbing — the token is re-read every attempt, never cached

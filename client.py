@@ -55,7 +55,7 @@ Two deliberate omissions:
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional
 
 import httpx
 
@@ -63,6 +63,19 @@ import httpx
 # written for an operator and can echo request details, so it is stashed on the
 # exception for the log and never returned to the model.
 PANEL_APP_ID = "maaend-panel"
+
+# ``/api/prepare`` loads 5809 resource nodes and spawns two agent processes;
+# the contract quotes 3-5 s, and the first call on a cold page file is slower.
+PREPARE_TIMEOUT_MIN_S = 90.0
+
+# ``/api/screenshot`` shares the panel's MaaFramework mutex with a running task,
+# so a request can legitimately queue behind the executor for a while.
+SCREENSHOT_TIMEOUT_S = 20.0
+
+# The log stream emits ``: ping`` every second while idle. A read window of four
+# heartbeats shrugs off a scheduling hiccup while still noticing a silently-dead
+# connection instead of hanging on it.
+SSE_READ_TIMEOUT_S = 5.0
 
 
 class MaaendError(Exception):
@@ -265,6 +278,102 @@ class MaaendClient:
         """
         return await self._json("POST", "/api/stop", token=token)
 
+    async def screenshot(self, token: str) -> bytes:
+        """The game window as PNG (1280x720, ~900 KiB).
+
+        Shares a mutex with a running task on the panel side, so this can queue
+        behind the executor; the read timeout is widened for that reason.
+        """
+        http = self._http
+        if http is None:
+            raise MaaendUnreachable("client is not open")
+        try:
+            response = await http.request(
+                "GET",
+                "/api/screenshot",
+                headers={"X-Auth-Token": token} if token else {},
+                timeout=httpx.Timeout(SCREENSHOT_TIMEOUT_S, connect=self.connect_timeout),
+            )
+        except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
+            raise MaaendUnreachable(str(exc)) from exc
+        except httpx.TimeoutException as exc:
+            raise MaaendTimeout(str(exc)) from exc
+        except (httpx.HTTPError, OSError) as exc:
+            raise MaaendUnreachable(str(exc)) from exc
+
+        if response.status_code == 401:
+            raise MaaendAuthError("panel rejected the token", status=401)
+        if response.status_code == 403:
+            raise MaaendForbidden("panel rejected the Host/Origin header", status=403)
+        if response.status_code == 503:
+            raise MaaendNotReady("panel is not ready", status=503, detail=_detail(response))
+        if response.status_code != 200:
+            raise MaaendRejected(
+                "panel refused the screenshot", status=response.status_code,
+                detail=_detail(response),
+            )
+        data = response.content
+        if not data:
+            raise MaaendProtocolError("panel returned an empty screenshot")
+        return data
+
+    async def open_log_stream(
+        self, token: str, *, since: int = 0
+    ) -> AsyncIterator[Dict[str, Any]]:
+        """One ``/api/logs`` connection, yielding parsed frames until it ends.
+
+        **One attempt, then return** — the reconnect loop and the cursor policy
+        live in the service (the same split as everywhere else in this module),
+        because only the service can decide whether the cursor it holds is still
+        meaningful after a panel restart.
+
+        The panel keeps the connection open for an hour and emits ``: ping``
+        every second while idle, so the read timeout is short: a stream that
+        goes quiet for that long is dead, and reconnecting is cheap.
+
+        Frames whose payload is not the documented JSON object are skipped
+        rather than raised on: this is a log display, and one malformed line
+        must not cost the whole stream.
+        """
+        http = self._http
+        if http is None:
+            raise MaaendUnreachable("client is not open")
+        params: Dict[str, Any] = {"since": int(max(0, since))}
+        headers = {"X-Auth-Token": token} if token else {}
+        try:
+            async with http.stream(
+                "GET",
+                "/api/logs",
+                params=params,
+                headers=headers,
+                timeout=httpx.Timeout(SSE_READ_TIMEOUT_S, connect=self.connect_timeout),
+            ) as response:
+                if response.status_code == 401:
+                    raise MaaendAuthError("panel rejected the token", status=401)
+                if response.status_code == 403:
+                    raise MaaendForbidden("panel rejected the Host/Origin header", status=403)
+                if response.status_code != 200:
+                    raise MaaendError(
+                        f"log stream refused ({response.status_code})",
+                        status=response.status_code,
+                    )
+                async for line in response.aiter_lines():
+                    if not line or line.startswith(":"):
+                        continue  # keepalive comment
+                    if not line.startswith("data:"):
+                        continue
+                    payload = _parse_json(line[5:].strip())
+                    if isinstance(payload, dict):
+                        yield payload
+        except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
+            raise MaaendUnreachable(str(exc)) from exc
+        except httpx.TimeoutException as exc:
+            raise MaaendTimeout(str(exc)) from exc
+        except (MaaendError,):
+            raise
+        except (httpx.HTTPError, OSError) as exc:
+            raise MaaendUnreachable(str(exc)) from exc
+
     # -- plumbing ------------------------------------------------------
 
     async def _json(
@@ -330,11 +439,6 @@ class MaaendClient:
         )
 
 
-# ``/api/prepare`` loads 5809 resource nodes and spawns two agent processes;
-# the contract quotes 3-5 s, and the first call on a cold page file is slower.
-PREPARE_TIMEOUT_MIN_S = 90.0
-
-
 def normalise_base_url(raw: Any) -> str:
     """Trim a configured base URL to something ``httpx`` can join paths onto.
 
@@ -359,6 +463,15 @@ def _text(response: httpx.Response) -> str:
 def _maybe_json(response: httpx.Response) -> Any:
     try:
         return response.json()
+    except Exception:
+        return None
+
+
+def _parse_json(text: str) -> Any:
+    import json
+
+    try:
+        return json.loads(text)
     except Exception:
         return None
 

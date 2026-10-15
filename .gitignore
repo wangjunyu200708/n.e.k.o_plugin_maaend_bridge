@@ -15,3 +15,13 @@ build/
 store.db
 .env
 .DS_Store
+
+# ── 自带执行器的运行产物（源码随包，产物不随包）──────────────────────
+# 日志与 token 是每台机器自己长的；interface.merged.json 由 build_interface.py
+# 从 interface.json + tasks/ 现展开，1.9MB 的生成物没有理由进仓库。
+executor/run_logs/
+executor/panel_token.txt
+executor/python_path.txt
+executor/*.log
+executor/override/interface.merged.json
+executor/override/interface.dist.json

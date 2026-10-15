@@ -2,7 +2,11 @@
 # managed-template: plugin-market-actions-v1
 target-version = "py311"
 line-length = 120
-extend-exclude = ["vendor"]
+# ``executor/`` is the MaaEnd self-built executor as it ships for distribution:
+# it came from its own repository, this plugin only repoints its asset paths,
+# and reformatting it would put a permanent diff between the two for no gain.
+# Our own tooling lives in ``scripts/`` and is linted.
+extend-exclude = ["vendor", "executor"]
 respect-gitignore = false
 
 [lint]
