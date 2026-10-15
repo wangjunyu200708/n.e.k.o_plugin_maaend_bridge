@@ -171,6 +171,48 @@ def normalise_match_text(value: Any) -> str:
     return _MATCH_DROP_RE.sub("", _as_str(value)).lower()
 
 
+# The model relays the user's own phrasing, and real labels are not substrings
+# of real sentences: 「帮我领取日常奖励」 vs the label 「日常奖励领取」, or
+# 「刷一下信用点」 vs 「信用点购物」. Substring matching alone turns every one
+# of those into "no such task, here are 46", which is a wasted round trip for
+# the commonest way a user talks. So a scoring pass runs last.
+#
+# Two signals, because they fail differently. Character bigrams are precise but
+# need two characters of agreement, so 「关掉游戏」 (which shares only 游戏 with
+# 「关闭游戏（安卓端）」) scores too low. Set overlap over single characters
+# catches that, at the price of matching on one shared character — so it is
+# discounted to three quarters, which puts a one-character coincidence below
+# the bar while a three-of-four match clears it.
+_FUZZY_MIN_SCORE = 0.5
+# The runner-up has to be clearly worse than the winner, or the answer is
+# "ambiguous" rather than a favourite picked on a fractional difference.
+_FUZZY_MARGIN = 1.25
+
+
+def _bigrams(text: str) -> set:
+    if len(text) < 2:
+        return set()
+    return {text[i : i + 2] for i in range(len(text) - 1)}
+
+
+def _fuzzy_score(query: str, candidate: str) -> float:
+    """How much of the *query* the candidate accounts for, in ``[0, 1]``.
+
+    Normalised by the query, not the candidate: the question is "which task is
+    this sentence about", and a long label should not be penalised for having
+    words the user did not say.
+    """
+    if not query or not candidate:
+        return 0.0
+    query_grams = _bigrams(query)
+    cand_grams = _bigrams(candidate)
+    best = 0.0
+    if query_grams and cand_grams:
+        best = len(query_grams & cand_grams) / len(query_grams)
+    shared = len(set(query) & set(candidate)) / len(set(query))
+    return max(best, shared * 0.75)
+
+
 @dataclass
 class ActiveTask:
     """The single in-flight task slot.
@@ -427,10 +469,11 @@ class MaaendService:
         ``name`` field — never a guess assembled from the label — because the
         panel keys its task map on that exact string.
 
-        Matching is intentionally generous on the way in (exact code, exact
-        label, then containment in either direction) and strict on the way
-        out: two plausible tasks are reported as ambiguous with both listed,
-        never resolved by picking a favourite.
+        Four passes, strongest evidence first: the exact code, the exact label,
+        substring containment in either direction, then fuzzy overlap. The
+        answer is strict even though the search is generous: two plausible
+        tasks come back as ambiguous with both listed, never as a favourite
+        chosen on a fractional difference.
         """
         raw = _as_str(query).strip()
         if not raw:
@@ -450,6 +493,12 @@ class MaaendService:
         if len(exact) > 1:
             return "", exact
 
+        # Below two characters there is nothing to weigh: one shared character
+        # is a coincidence, not a name, and dispatching the wrong automation is
+        # far more expensive than asking again. Exact matches already ran.
+        if len(needle) < 2:
+            return "", []
+
         hits: List[Dict[str, Any]] = []
         for task in tasks:
             if not isinstance(task, dict):
@@ -464,7 +513,24 @@ class MaaendService:
                 hits.append(task)
         if len(hits) == 1:
             return _as_str(hits[0].get("name")).strip(), []
-        return "", hits
+        if len(hits) > 1:
+            return "", hits
+
+        scored: List[Tuple[float, Dict[str, Any]]] = []
+        for task in tasks:
+            if not isinstance(task, dict):
+                continue
+            score = _fuzzy_score(needle, normalise_match_text(task.get("label")))
+            if score >= _FUZZY_MIN_SCORE:
+                scored.append((score, task))
+        if not scored:
+            return "", []
+        scored.sort(key=lambda pair: pair[0], reverse=True)
+        best_score = scored[0][0]
+        contenders = [task for score, task in scored if score * _FUZZY_MARGIN >= best_score]
+        if len(contenders) == 1:
+            return _as_str(contenders[0].get("name")).strip(), []
+        return "", contenders
 
     async def get_status(self) -> Dict[str, Any]:
         """Panel-facing snapshot. Never raises; reports failures as fields.

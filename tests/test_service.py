@@ -121,6 +121,22 @@ def make_service(tmp_path: Path, *, token: str = "tok-1", **cfg: Any) -> tuple:
 # Task-name resolution — the model speaks human, the panel wants a code.
 # ---------------------------------------------------------------------------
 
+# Labels copied from the real MaaEnd resource layer: the point of these cases
+# is that the executor's labels are *not* substrings of the sentences a user
+# actually says, which is what the fuzzy pass exists for.
+REAL_LABELS = [
+    {"name": "DailyRewards", "label": "📅日常奖励领取"},
+    {"name": "CreditShoppingN2", "label": "🛍️信用点购物"},
+    {"name": "AutoCollect", "label": "🧺自动采集"},
+    {"name": "BakerEntry", "label": "💬会话消息嘴替"},
+    {"name": "AutoEssence", "label": "🎱基质刷取"},
+    {"name": "CloseGame", "label": "❌关闭游戏（安卓端）"},
+    {"name": "CloseGamePC", "label": "❌关闭游戏（PC）"},
+    {"name": "ProtocolSpace", "label": "⚔️协议空间"},
+    {"name": "StashBackpack", "label": "🎒存放背包"},
+    {"name": "ItemTransfer", "label": "🐌库存转移"},
+]
+
 
 def test_resolve_exact_code():
     assert MaaendService.resolve_task("CreditShoppingN2", TASKS) == ("CreditShoppingN2", [])
@@ -154,6 +170,75 @@ def test_resolve_empty_query_returns_nothing():
 
 def test_normalise_match_text_strips_punctuation_and_case():
     assert normalise_match_text("🛍️ Credit-Shopping_N2 ") == "creditshoppingn2"
+
+
+# ---------------------------------------------------------------------------
+# Fuzzy resolution — real labels are not substrings of real sentences.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("query", "expected"),
+    [
+        # The label is 日常奖励领取; the sentence wraps it in the words a user
+        # would actually add. Substring matching alone finds nothing here.
+        ("帮我领取日常奖励", "DailyRewards"),
+        ("清一下会话消息", "BakerEntry"),
+        ("刷基质", "AutoEssence"),
+        ("打协议空间", "ProtocolSpace"),
+        # Too diluted to be sure — the honest answer is the catalogue, and the
+        # model picks from it and calls again.
+        ("把这个月的奖励领了", ""),
+        ("把背包存一下", ""),
+        ("每日", ""),  # no task is *called* 每日; matching on 日 alone is a guess
+        ("收菜", ""),  # nothing is called 收菜 — the catalogue is the right answer
+        ("买东西", ""),
+    ],
+)
+def test_fuzzy_resolution(query, expected):
+    name, candidates = MaaendService.resolve_task(query, REAL_LABELS)
+    if expected:
+        assert name == expected, f"{query!r} -> {name!r} (candidates {candidates})"
+    else:
+        assert name == "", f"{query!r} matched {name!r} — too eager"
+
+
+def test_a_single_character_is_never_enough_to_dispatch_on():
+    """"包" shares a character with 存放背包; that is not a reason to run it."""
+    assert MaaendService.resolve_task("包", REAL_LABELS) == ("", [])
+    assert MaaendService.resolve_task("刷", REAL_LABELS) == ("", [])
+    # An exact code or label is a different thing and still matches.
+    assert MaaendService.resolve_task("StashBackpack", REAL_LABELS)[0] == "StashBackpack"
+
+
+def test_a_synonym_that_two_tasks_share_is_reported_as_ambiguous():
+    """"关掉游戏" is a real way to say it, and both a PC and an Android task fit."""
+    name, candidates = MaaendService.resolve_task("关掉游戏", REAL_LABELS)
+    assert name == ""
+    assert {item["name"] for item in candidates} == {"CloseGame", "CloseGamePC"}
+
+
+def test_every_real_label_and_code_resolves_to_itself():
+    """The whole catalogue round-trips — a label that matched another task
+    would silently run the wrong automation."""
+    for task in REAL_LABELS:
+        assert MaaendService.resolve_task(task["label"], REAL_LABELS)[0] == task["name"]
+        assert MaaendService.resolve_task(task["name"], REAL_LABELS)[0] == task["name"]
+        assert MaaendService.resolve_task(task["name"].lower(), REAL_LABELS)[0] == task["name"]
+
+
+def test_fuzzy_scoring_ignores_a_single_shared_character():
+    from maaend_bridge_plugin.service import _fuzzy_score
+
+    assert _fuzzy_score("每日", "日常奖励领取") < 0.5
+    assert _fuzzy_score("关掉游戏", "关闭游戏安卓端") >= 0.5
+    assert _fuzzy_score("帮我领取日常奖励", "日常奖励领取") >= 0.5
+    assert _fuzzy_score("", "x") == 0.0
+    assert _fuzzy_score("x", "") == 0.0
+    # A one-character query scores high against a label that contains it, which
+    # is exactly why ``resolve_task`` refuses to use the score below two
+    # characters (see the test above).
+    assert _fuzzy_score("包", "存放背包") >= 0.5
 
 
 # ---------------------------------------------------------------------------
