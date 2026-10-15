@@ -34,10 +34,16 @@ enabled = false
 [plugin.ui]
 enabled = true
 
-[[plugin.ui.guide]]
+# kind 决定它出现在插件详情页的哪个标签页：``panel`` 是控制面板，
+# ``guide``/``docs`` 是教程。控制界面属于 panel。
+[[plugin.ui.panel]]
 id = "maaend"
 title = "MaaEnd 执行器"
 entry = "surfaces/maaend.tsx"
+# ⚠️ 必须显式写 mode。宿主默认 mode = "static"，那会把 entry 当成 http
+# 静态资源塞进 iframe 的 src —— 浏览器请求到的是一段 TSX 文本，页面全白。
+# 只有 "hosted-tsx" 才走 ``@neko/plugin-ui`` 的编译器与沙箱。
+mode = "hosted-tsx"
 # context 必须与 @ui.context(id="maaend") 一致；缺了它 props.api.call 会因
 # "UI context not found" 全数失败。
 context = "maaend"

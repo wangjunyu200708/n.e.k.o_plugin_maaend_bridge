@@ -42,17 +42,69 @@ def test_runtime_timeout_is_within_the_accepted_range():
     assert 0 < timeout <= 300
 
 
+def _all_surfaces():
+    """Every declared UI surface, with the manifest section it came from.
+
+    The host only walks ``panel`` / ``guide`` / ``docs``
+    (``ui_query_service._build_manifest_surfaces``); anything else is silently
+    never rendered.
+    """
+    ui = _manifest()["plugin"]["ui"]
+    for kind in ("panel", "guide", "docs"):
+        for surface in ui.get(kind, []):
+            yield kind, surface
+
+
+def test_ui_surfaces_use_only_kinds_the_host_renders():
+    ui = _manifest()["plugin"]["ui"]
+    known = {"enabled", "panel", "guide", "docs"}
+    assert set(ui) <= known, f"unknown ui sections are never rendered: {set(ui) - known}"
+
+
+def test_the_control_surface_is_a_panel_not_a_tutorial():
+    """``guide`` / ``docs`` render under the plugin's tutorial tab."""
+    kinds = [kind for kind, _surface in _all_surfaces()]
+    assert kinds, "no UI surface declared at all"
+    assert "panel" in kinds, (
+        "the control surface is not declared under [[plugin.ui.panel]], so it "
+        f"lands in the tutorial tab (declared: {kinds})"
+    )
+
+
+def test_hosted_tsx_surfaces_declare_their_mode():
+    """The host defaults ``mode`` to ``static``.
+
+    With that default a ``.tsx`` entry is handed to the iframe as an http static
+    asset — the browser requests a TypeScript file and renders nothing. Only
+    ``hosted-tsx`` goes through the ``@neko/plugin-ui`` compiler, and nothing in
+    the manifest infers it from the file extension.
+    """
+    for kind, surface in _all_surfaces():
+        entry = surface["entry"]
+        if entry.endswith((".tsx", ".jsx")):
+            assert surface.get("mode") == "hosted-tsx", (
+                f"plugin.ui.{kind} entry {entry!r} must set mode = \"hosted-tsx\" "
+                f"(got {surface.get('mode')!r}, which renders a blank iframe)"
+            )
+
+
+def test_every_surface_entry_file_exists():
+    for kind, surface in _all_surfaces():
+        assert (ROOT / surface["entry"]).is_file(), (
+            f"plugin.ui.{kind} entry {surface['entry']!r} is missing"
+        )
+
+
 def test_ui_surface_declares_a_context_that_has_a_provider():
     """Without a matching ``@ui.context`` the host refuses every action call."""
-    sources = "\n".join(
-        (ROOT / name).read_text(encoding="utf-8") for name in ("__init__.py",)
-    )
-    surfaces = _manifest()["plugin"]["ui"]["guide"]
-    for surface in surfaces:
-        entry = ROOT / surface["entry"]
-        assert entry.is_file(), f"{surface['entry']} is missing"
-        if "context" in surface:
-            assert f'@ui.context(id="{surface["context"]}")' in sources
+    sources = (ROOT / "__init__.py").read_text(encoding="utf-8")
+    for kind, surface in _all_surfaces():
+        if "context" not in surface:
+            continue
+        assert f'@ui.context(id="{surface["context"]}")' in sources, (
+            f"plugin.ui.{kind} declares context {surface['context']!r} with no "
+            f"@ui.context provider — every props.api.call would fail"
+        )
 
 
 def test_every_locale_file_is_valid_json_with_the_manifest_keys():

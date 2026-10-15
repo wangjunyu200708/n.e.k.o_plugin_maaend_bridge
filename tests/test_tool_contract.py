@@ -132,11 +132,14 @@ def test_the_panel_surface_id_has_a_matching_context_provider(plugin_module):
 
     root = Path(plugin_module.__file__).resolve().parent
     manifest = tomllib.loads((root / "plugin.toml").read_text(encoding="utf-8"))
+    ui = manifest["plugin"]["ui"]
     declared = {
         surface["context"]
-        for surface in manifest["plugin"]["ui"]["guide"]
+        for kind in ("panel", "guide", "docs")
+        for surface in ui.get(kind, [])
         if "context" in surface
     }
+    assert declared, "no UI surface declares a context — the panel cannot call anything"
     provided = {
         context.get("id") if isinstance(context, dict) else getattr(context, "id", None)
         for context in _metadata(plugin_module.MaaendBridgePlugin)["contexts"]
