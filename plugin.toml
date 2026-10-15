@@ -1,0 +1,80 @@
+[plugin]
+id = "maaend_bridge"
+name = "MaaEnd 终末地执行器"
+description = "桥接本地 MaaEnd 自建执行器（《明日方舟：终末地》自动化），让猫娘可以指挥它跑日常、刷信用点、收菜，并实时转播执行进度。"
+short_description = "Bridge the local MaaEnd executor (Arknights: Endfield automation) so neko-chan can run tasks and narrate progress."
+keywords = [
+    "终末地", "(?i)endfield", "maaend", "明日方舟", "(?i)arknights",
+    "自动化", "(?i)automation", "日常", "(?i)daily", "脚本", "(?i)script",
+    "执行器", "(?i)executor", "刷", "(?i)farm", "挂机", "(?i)afk",
+]
+version = "0.1.0"
+type = "plugin"
+entry = "plugin.plugins.maaend_bridge:MaaendBridgePlugin"
+
+[plugin.author]
+name = "wangjunyu200708"
+
+[plugin.sdk]
+recommended = ">=0.1.0,<0.2.0"
+supported = ">=0.1.0,<0.3.0"
+
+[plugin.i18n]
+default_locale = "zh-CN"
+locales_dir = "i18n"
+
+[plugin_runtime]
+enabled = true
+# 手动启动。执行器面板是用户按需开的东西，默认不把它挂进每个会话的工具槽位。
+auto_start = false
+
+[plugin.store]
+enabled = false
+
+[plugin.ui]
+enabled = true
+
+[[plugin.ui.guide]]
+id = "maaend"
+title = "MaaEnd 执行器"
+entry = "surfaces/maaend.tsx"
+# context 必须与 @ui.context(id="maaend") 一致；缺了它 props.api.call 会因
+# "UI context not found" 全数失败。
+context = "maaend"
+permissions = ["state:read", "action:call"]
+
+[maaend]
+# MaaEnd 控制面板后端（panel_server.py）。只监听 127.0.0.1。
+base_url = "http://127.0.0.1:12702"
+
+# 面板仓库的 .workbuddy 目录，用来定位 panel_token.txt。
+# 留空则用内置的平台默认（见 service.default_panel_dir）。
+panel_dir = ""
+
+# 显式指定令牌文件路径；留空则用 <panel_dir>/panel_token.txt。
+# 令牌只从文件读，不写进本插件的配置——面板每次启动都会换一个新的。
+token_file = ""
+
+# 单个 REST 调用的超时（秒）。/api/prepare 要拉起 5809 个节点 + 两个 agent，
+# 会明显慢于其他端点，单独给它一份预算。
+http_timeout_seconds = 10.0
+prepare_timeout_seconds = 90.0
+
+# 任务进行中的轮询间隔（秒）。任务的开始/结束都从 /api/status 读，不订阅 SSE。
+poll_interval_seconds = 2.0
+
+# 派活时发给面板的任务时长上限（分钟）。面板自己的默认是 5 分钟，到点会
+# **主动停掉任务**；对日常/刷材料这类任务偏短，所以这里默认给 30 分钟。
+# 传 0 表示不指定，交回面板的默认值。
+default_timeout_minutes = 30
+
+# 模型能要求的单任务时长上限（分钟）。
+max_timeout_minutes = 120
+
+# 派活之后等它结束的预算（秒）。超时就放开任务槽并如实说"我不管它了"。
+# 它必须大于 default_timeout_minutes，否则我们会在面板自己停下任务之前就先放手。
+task_wait_timeout_seconds = 3600.0
+
+# 进度（正在执行哪个 pipeline 节点）推进 LLM 上下文的最小间隔（秒）。
+# 一个任务能跑几十个节点，不设闸会把上下文灌满。
+progress_min_interval_seconds = 10.0

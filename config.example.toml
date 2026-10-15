@@ -1,0 +1,52 @@
+# config.example.toml — 用户运行时配置模板
+#
+# 用法：把需要的键复制到**生效的那份配置**里，再按自己的机器改。生效的配置不是
+# 源码里的 plugin.toml：
+#
+#   源码树开发     直接改 ./plugin.toml 的 [maaend] 节
+#   打包版客户端   %LOCALAPPDATA%\N.E.K.O\plugins\maaend_bridge\profiles\default.toml
+#                   —— 改 config/plugin.toml 是不生效的
+#   插件设置面板   也可以在面板里直接改，落盘到同一份 profile
+#
+# ⚠️ profile 里**不能**出现顶层 [plugin] 节（宿主会以 400 拒绝：profile 只能覆盖
+#    业务配置，不能改插件身份）。
+#
+# 本文件里没有密钥：面板令牌是从 panel_token.txt 现读的，不写进任何配置。
+
+[maaend]
+# 面板后端地址。只监听 127.0.0.1，而面板自己把 Host/Origin 钉死在
+# 127.0.0.1/localhost 上——所以这里别填主机名或局域网 IP，会撞 403。
+base_url = "http://127.0.0.1:12702"
+
+# 面板仓库的 .workbuddy 目录，用来定位 panel_token.txt。
+# 留空则会依次猜 MAAEND_PANEL_DIR 环境变量与几个常见安装路径；
+# 猜不中时插件会明确说"读不到令牌文件"，此时把这一项填上即可。
+panel_dir = ""
+
+# 显式指定令牌文件；留空用 <panel_dir>/panel_token.txt。
+token_file = ""
+
+# 单个 REST 调用的超时（秒）。
+http_timeout_seconds = 10
+
+# /api/prepare 单独一份预算：它要加载 5809 个资源节点并拉起两个 agent 进程。
+prepare_timeout_seconds = 90
+
+# 任务进行中的轮询间隔（秒）。任务的开始与结束都从 /api/status 读。
+poll_interval_seconds = 2.0
+
+# 派活时发给面板的任务时长上限（分钟）。面板自己的默认是 5 分钟，到点会**主动
+# 停掉任务**；对日常/刷材料这类任务偏短，所以这里给 30 分钟。填 0 表示不指定，
+# 交回面板的默认值。
+default_timeout_minutes = 30
+
+# 模型能要求的单任务时长上限（分钟）。
+max_timeout_minutes = 120
+
+# 派活之后等它结束的预算（秒）。必须大于 default_timeout_minutes，否则我们会在
+# 面板自己停下任务之前先放手、把一个正常的超时讲成"不知道"。
+task_wait_timeout_seconds = 3600
+
+# 进度（正在执行哪个 pipeline 节点）推进 LLM 上下文的最小间隔（秒）。
+# 一个任务能跑几十个节点，不设闸会把上下文灌满。
+progress_min_interval_seconds = 10
