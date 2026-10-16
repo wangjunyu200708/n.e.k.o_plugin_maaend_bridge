@@ -35,6 +35,9 @@ executor/
 │   └── licenses/
 │
 ├── maaend/                  ★ 游戏资源层（AGPL-3.0，MaaEnd 原样、未修改）
+│   └── maafw/                   go-service/cpp-algo 要 dlopen 的原生运行时。**不能省**：
+│                                这两个 agent 从资源层根目录找 `maafw/`，和 Python 绑定在
+│                                自己旁边找不是一回事（DLL 虽逐字节相同）。
 │
 ├── API_CONTRACT.md          ★ 前端实现契约（端点/字段/选项值格式/配色）
 │
@@ -103,7 +106,7 @@ executor/
 ### 方式 B：命令行跑任务
 
 ```bat
-C:\Users\25672\AppData\Local\Python\pythoncore-3.11-64\python.exe ^
+executor\vendor\python\python.exe ^
     executor\run_elevated.py CreditShoppingN2 300
 ```
 
@@ -112,6 +115,12 @@ run_elevated.py <任务名> <超时秒> [--set 选项名=值]
 ```
 
 `--list-tasks` 可列出全部 46 个任务。
+
+⚠️ **必须用自带解释器跑 executor 里的脚本。** 它们依赖
+`vendor/python/python311._pth` 把 `executor/` 与 `executor/override/` 放进
+`sys.path`——isolated 模式下 `PYTHONPATH` 会被静默忽略，而**脚本自己所在的目录也
+不在 `sys.path` 上**（`sys.path[0]` 是标准库那个 zip）。换成别的 Python，
+`runner.py` 会在 `from override_gen import ...` 处直接 ImportError。
 
 ---
 
@@ -177,17 +186,20 @@ MXU 前端产出 `[{...},{...}]`；Rust 绑定内部有合并层，**Python 绑�
 ## 6. 测试与验证
 
 ```bat
+:: 下面全部用自带解释器（原因见 3.B 的注意事项）
+set PY=executor\vendor\python\python.exe
+
 :: 编译器漂移检测（不需要游戏）
-python executor\override\golden_test.py --check
+%PY% executor\override\golden_test.py --check
 
 :: API 冒烟（不需要游戏，16 项断言）
-python executor\api_smoke.py --port 12702
+%PY% executor\api_smoke.py --port 12702
 
 :: 真机验证（需要游戏在运行）
-python executor\test_prepare.py --port 12702
+%PY% executor\test_prepare.py --port 12702
 
 :: 资源加载冒烟
-python executor\smoke_resource.py
+%PY% executor\smoke_resource.py
 ```
 
 已实测通过的任务：`DailyRewards`（22+ 节点）、`CreditShoppingN2`（57 节点 override，67 秒）。
@@ -210,7 +222,7 @@ python executor\smoke_resource.py
 | 项 | 值 |
 |---|---|
 | Python | **自带**：`vendor/python/python.exe`（embeddable CPython 3.11.9；`python311._pth` 把 `vendor/site-packages` 列进 `sys.path`） |
-| MaaFw | **自带**：`vendor/site-packages/maa`（5.14.2，纯 `.py` + 17 个原生 DLL，无 `.pyd`） |
+| MaaFw | **自带两份，都是必需的**：`vendor/site-packages/maa`（Python 绑定，5.14.2，纯 `.py` + 17 个原生 DLL，无 `.pyd`）；`maaend/maafw`（同样那 17 个 DLL，供 `go-service.exe` / `cpp-algo.exe` dlopen——它们按资源层根目录解析，不看 Python 那边） |
 | numpy / Pillow | **自带**。`maa` 在模块级 `import numpy`，所以它不是可选项；截图那条路用 PIL |
 | Node | **运行时不需要**。override 编译器已移植为纯 Python；Node 只在维护期用到（重新导出 `data.json`、`--compare/--update` 拿 TS 当对照组） |
 | 端口 | 12702（只监听 127.0.0.1） |

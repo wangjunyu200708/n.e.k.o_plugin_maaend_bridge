@@ -1,3 +1,19 @@
 python311.zip
 .
 ..\site-packages
+..\..
+..\..\override
+
+# site-packages is listed here rather than passed via PYTHONPATH:
+# an embeddable Python with a _pth file is isolated and silently ignores
+# PYTHONPATH. `import site` is deliberately absent - this site-packages
+# has no .pth files, so site processing has nothing to do.
+#
+# The last two entries exist for the same reason and one more. Isolated mode
+# also leaves the script's own directory off sys.path: sys.path[0] is this
+# zip, and the `.` above means the interpreter's directory, not the caller's.
+# Without them a script could only reach its own siblings by calling
+# sys.path.insert first - and that is a statement, so every import after it
+# trips E402. The plugin market's verify workflow runs ruff with
+# --ignore-noqa, which leaves no way to silence E402, so the paths belong
+# here rather than in the scripts.

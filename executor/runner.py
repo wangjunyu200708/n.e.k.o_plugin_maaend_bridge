@@ -22,35 +22,30 @@ from __future__ import annotations
 
 import argparse
 import ctypes
-import json
 import os
 import subprocess
 import sys
 import time
 from pathlib import Path
 
-# 资源层随插件分发（executor/maaend/）。仍可被 --maaend-dir 与插件配置覆盖。
-MAAEND_DIR = Path(__file__).resolve().parent / "maaend"
-OVERRIDE_DIR = Path(__file__).parent / "override"
-LOG_DIR = Path(__file__).parent / "run_logs"
-
-sys.path.insert(0, str(OVERRIDE_DIR))
-
-import maa.library as _maalib  # noqa: E402
-from maa.agent_client import AgentClient  # noqa: E402
-from maa.controller import (  # noqa: E402
+import maa.library as _maalib
+import packmeta  # 同目录：资源层自描述（窗口 / 控制器 / 项目身份）
+from maa.agent_client import AgentClient
+from maa.controller import (
     MaaWin32InputMethodEnum,
     MaaWin32ScreencapMethodEnum,
     Win32Controller,
 )
-from maa.define import LoggingLevelEnum  # noqa: E402
-from maa.resource import Resource  # noqa: E402
-from maa.tasker import Tasker  # noqa: E402
-from maa.toolkit import Toolkit  # noqa: E402
+from maa.define import LoggingLevelEnum
+from maa.resource import Resource
+from maa.tasker import Tasker
+from maa.toolkit import Toolkit
+from override_gen import gen_override_object, load_interface
 
-from override_gen import gen_override_object, load_interface  # noqa: E402
-
-import packmeta  # noqa: E402  同目录：资源层自描述（窗口 / 控制器 / 项目身份）
+# 资源层随插件分发（executor/maaend/）。仍可被 --maaend-dir 与插件配置覆盖。
+MAAEND_DIR = Path(__file__).resolve().parent / "maaend"
+OVERRIDE_DIR = Path(__file__).parent / "override"
+LOG_DIR = Path(__file__).parent / "run_logs"
 
 # 窗口身份与控制器方法曾经写死在这里（UnityWndClass / Endfield / ScreenDC / Seize）。
 # 它们本来就在资源层的 interface.json 的 controller[].win32 里，写死就意味着
@@ -304,7 +299,7 @@ class Runner:
             raise SystemExit(f"未知任务 {task_name}\n可用: {', '.join(names)}")
 
         entry = task_def.get("entry")
-        self.log(f"[5/5] 编译选项 -> pipeline_override ...")
+        self.log("[5/5] 编译选项 -> pipeline_override ...")
         override = gen_override_object(
             task_name, option_values, assets_dir=str(self.dir)
         )
@@ -316,7 +311,7 @@ class Runner:
             front = self._bring_to_front(self._hwnd)
             self.log(f"      任务前置前={front}")
 
-        self.log(f"      启动任务 ...")
+        self.log("      启动任务 ...")
         try:
             self.tasker.set_log_dir(str(LOG_DIR / "maa"))
             self.tasker.set_stdout_level(LoggingLevelEnum.Debug)

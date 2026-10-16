@@ -226,16 +226,22 @@ executor/                     自建执行器（独立进程，不被 import）
 │   ├── tasks/ (71)           46 个任务定义
 │   ├── resource/ (2123)      pipeline（5809 节点）+ 图片 + ONNX 模型
 │   ├── agent/ (3)            go-service.exe + cpp-algo.exe（47 自定义识别 / 85 自定义动作）
+│   ├── maafw/ (26)           这两个 agent 要 dlopen 的原生运行时（MaaFramework + 依赖）
 │   ├── locales/ (46)         界面本地化，面板的 Translator 读它
 │   ├── data/ (19)            部分任务要用的地图/表格数据
 │   └── SOURCE.txt            来源与逐目录指纹（由脚本生成）
 └── 冒烟脚本                  api_smoke / smoke_resource / smoke_override / test_prepare / probe_*
 ```
 
-**没有带**：`MaaEnd.exe`（MXU 宿主，本执行器存在的意义就是绕开它）、`maafw/`
-（pip 的 `maa` wheel 自带同一套 DLL，已验证）、`debug/` `cache/` `config/`
-（上游作者的运行残留）、`resource_adb/` 与各平台 `resource_*`（本桥只走 Win32-Front）、
-以及 `run_logs/`、截图、`panel_token.txt` 等运行产物。
+**没有带**：`MaaEnd.exe`（MXU 宿主，本执行器存在的意义就是绕开它）、`debug/` `cache/`
+`config/`（上游作者的运行残留）、`resource_adb/` 与各平台 `resource_*`（本桥只走
+Win32-Front）、以及 `run_logs/`、截图、`panel_token.txt` 等运行产物。
+
+**`maafw/` 必须带**，尽管它的 DLL 与 `executor/vendor/site-packages/maa/bin/` 下的
+**逐字节相同**。两者的解析规则不一样：Python 绑定在自己旁边找，而 `go-service.exe` /
+`cpp-algo.exe` 从自己所在的资源层根目录找 `maafw/`。删掉它，agent 起不来，任务全部
+初始化失败——而且 MaaFramework 只在 `go-service.stdout.log` 里说一句
+`failed to load library "MaaFramework"`，插件侧看到的是初始化迟迟不返回。
 
 ### 许可
 

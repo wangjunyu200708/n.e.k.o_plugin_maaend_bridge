@@ -4,7 +4,7 @@
 # re-run the script instead. Re-check with:
 #     python scripts/sync_maaend_assets.py <distribution> --check
 
-synced_at        = 2026-10-15T22:27:01
+synced_at        = 2026-10-16T12:51:13
 source           = E:\MaaEnddm\MaaEnd-win-x86_64-v2.32.0
 upstream_project = MaaEnd
 upstream_license = AGPL-3.0 (GNU Affero General Public License v3) — verbatim copy, unmodified; see LICENSE in this directory
@@ -16,17 +16,17 @@ interface_json = { files = 1, bytes = 9377 }
 tasks = { files = 71, bytes = 4670076 }
 resource = { files = 2123, bytes = 275072302 }
 agent = { files = 3, bytes = 20423232 }
+maafw = { files = 26, bytes = 62986444 }
 locales = { files = 46, bytes = 1353397 }
 data = { files = 19, bytes = 5979252 }
 LICENSE = { files = 1, bytes = 34523 }
 README_md = { files = 1, bytes = 9222 }
 
-total_files = 2265
-total_bytes = 307551381
+total_files = 2291
+total_bytes = 370537825
 
 # Deliberately NOT bundled:
 #   MaaEnd.exe             the MXU desktop host — the whole point of this executor is to bypass it
-#   maafw                  native DLLs; the pip 'maa' wheel already ships the same set (verified: 17 DLLs incl. MaaFramework.dll)
 #   debug                  MaaFramework debug logs from the upstream author's runs
 #   cache                  MXU's own download/update cache
 #   config                 MXU's own settings file

@@ -35,6 +35,7 @@ Three things about the panel shape everything below.
 from __future__ import annotations
 
 import asyncio
+import importlib.util
 import os
 import re
 import time
@@ -942,11 +943,19 @@ class MaaendService:
             raise MaaendError(_PIL_ERROR)
         if not _PIL_CHECKED:
             _PIL_CHECKED = True
+            # ``find_spec`` rather than ``import PIL.Image``: the import exists
+            # only to answer "is it there", and a bare import of a module we do
+            # not otherwise touch is an unused import to every linter — the
+            # market's verify workflow runs ruff with ``--ignore-noqa``, so
+            # ``# noqa: F401`` is not an option there.
             try:
-                import PIL.Image  # noqa: F401
+                available = importlib.util.find_spec("PIL.Image") is not None
             except Exception as exc:  # pragma: no cover - host-dependent
                 _PIL_ERROR = f"PIL unavailable: {type(exc).__name__}"
                 raise MaaendError(_PIL_ERROR) from exc
+            if not available:
+                _PIL_ERROR = "PIL unavailable: ModuleNotFoundError"
+                raise MaaendError(_PIL_ERROR)
 
         import base64
         import io

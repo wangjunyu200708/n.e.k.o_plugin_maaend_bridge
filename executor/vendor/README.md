@@ -46,7 +46,7 @@ bootloader，`sys.path` 是冻结的，既不能 `pip install --target` 也不�
 
 ---
 
-## `python311._pth` —— 两个静默坑
+## `python311._pth` —— 三个静默坑
 
 embeddable 发行版带一个 `_pth`，它的存在会让 Python 进入 **isolated 模式**。
 本副本的内容是：
@@ -55,6 +55,8 @@ embeddable 发行版带一个 `_pth`，它的存在会让 Python 进入 **isolat
 python311.zip
 .
 ..\site-packages
+..\..
+..\..\override
 ```
 
 **坑一：zip 名不能带点号版本号。** 写成 `python3.11.9.zip` 会让标准库整个找不到，
@@ -64,6 +66,17 @@ python311.zip
 **坑二：`..\site-packages` 必须显式列出。** isolated 模式下 **`PYTHONPATH` 会被静默
 忽略**，靠环境变量指路是无效的。（把路径写进 `_pth` 也比环境变量更好：确定性、不受
 调用方环境影响。）
+
+**坑三：脚本自己所在的目录也不在 `sys.path` 上。** 这一条最容易踩：isolated 模式下
+`sys.path[0]` 是上面那个 zip，而列表里的 `.` 指的是**解释器所在目录**（`vendor/python`），
+不是调用方的当前目录。所以最后两行专门把 `executor/` 与 `executor/override/` 放进去——
+executor 的每个脚本都要 import 同目录或 `override/` 的兄弟模块。
+
+在把这两行挪进来之前，脚本各自在文件中间调 `sys.path.insert` 解决这件事。那不是个好
+写法：`sys.path.insert` 是语句，插在它后面的每个 import 都是 E402（"module level import
+not at top of file"），而插件市场的 verify 工作流用 `--ignore-noqa` 跑 ruff，`# noqa`
+在那里**不生效**，于是 41 个 E402 一个都压不掉。路径本来就属于运行时的配置，放在
+`._pth` 里既解决了 lint，也让脚本从任意 cwd 都能跑。
 
 **关于 `import site`：本副本特意没有加，因为实测不需要。** 判断依据是可查的：本
 `site-packages` 下**没有任何 `.pth` 文件**（`find site-packages -maxdepth 1 -name

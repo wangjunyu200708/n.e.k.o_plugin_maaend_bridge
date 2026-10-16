@@ -56,15 +56,29 @@ INCLUDE = [
     "resource",         # pipeline (5809 nodes) + images + ONNX models
     "agent",            # go-service.exe + cpp-algo.exe (47 custom recognizers,
                         # 85 custom actions)
+    "maafw",            # The native runtime go-service.exe / cpp-algo.exe
+                        # dlopen. These DLLs are byte-identical to the ones the
+                        # pip 'maa' wheel ships in site-packages/maa/bin — but
+                        # the two consumers resolve them by different rules: the
+                        # Python binding looks beside itself, while those agents
+                        # look at ``<resource layer>/maafw/``, which is where
+                        # upstream puts it. Skipping this directory on the
+                        # grounds that "the wheel has the same DLLs" therefore
+                        # leaves every task failing to initialise MaaFramework.
     "locales",          # interface/{lang}.json, read by the panel's Translator
     "data",             # per-task runtime data (maps, tables) some tasks load
     "LICENSE",          # upstream licence — must travel with the assets
     "README.md",        # upstream readme
 ]
 
+# Subdirectories inside an INCLUDE entry that are runtime state rather than
+# shipped files — the upstream author's own runs leave these behind.
+NESTED_SKIP = {
+    "maafw": ["debug", "config"],
+}
+
 SKIP_REASONS = {
     "MaaEnd.exe": "the MXU desktop host — the whole point of this executor is to bypass it",
-    "maafw": "native DLLs; the pip 'maa' wheel already ships the same set (verified: 17 DLLs incl. MaaFramework.dll)",
     "debug": "MaaFramework debug logs from the upstream author's runs",
     "cache": "MXU's own download/update cache",
     "config": "MXU's own settings file",
@@ -77,6 +91,19 @@ SKIP_REASONS = {
 }
 
 
+def _entry_files(root: Path, entry: str) -> List[Path]:
+    """Files under one INCLUDE entry, minus its NESTED_SKIP subdirectories."""
+    path = root / entry
+    if path.is_file():
+        return [path]
+    skipped = set(NESTED_SKIP.get(entry, ()))
+    return [
+        f
+        for f in path.rglob("*")
+        if f.is_file() and not (skipped & set(f.relative_to(path).parts))
+    ]
+
+
 def _measure(root: Path, entries: List[str]) -> Dict[str, Tuple[int, int]]:
     """``{entry: (file_count, total_bytes)}`` for each entry that exists."""
     out: Dict[str, Tuple[int, int]] = {}
@@ -84,10 +111,7 @@ def _measure(root: Path, entries: List[str]) -> Dict[str, Tuple[int, int]]:
         path = root / name
         if not path.exists():
             continue
-        if path.is_file():
-            out[name] = (1, path.stat().st_size)
-            continue
-        files = [f for f in path.rglob("*") if f.is_file()]
+        files = _entry_files(root, name)
         out[name] = (len(files), sum(f.stat().st_size for f in files))
     return out
 
@@ -132,7 +156,12 @@ def sync(source: Path, *, dry_run: bool = False, prune: bool = False) -> int:
             continue
         src, dst = source / name, TARGET / name
         if src.is_dir():
-            shutil.copytree(src, dst, dirs_exist_ok=True)
+            shutil.copytree(
+                src,
+                dst,
+                dirs_exist_ok=True,
+                ignore=shutil.ignore_patterns(*NESTED_SKIP.get(name, ())),
+            )
         else:
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src, dst)

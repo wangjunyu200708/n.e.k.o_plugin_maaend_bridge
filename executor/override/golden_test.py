@@ -28,12 +28,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pipeline_override as P
+
 HERE = Path(__file__).resolve().parent
 GOLDEN_DIR = HERE / "golden"
-
-sys.path.insert(0, str(HERE))
-
-import pipeline_override as P  # noqa: E402
 
 MAAEND_DIR = "E:/MaaEnddm/MaaEnd-win-x86_64-v2.32.0"
 CONTROLLER = "Win32-Front"

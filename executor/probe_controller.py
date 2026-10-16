@@ -9,14 +9,13 @@ import sys
 import time
 from pathlib import Path
 
+import packmeta  # 同目录：窗口身份从资源层的 interface.json 读，换资源层不必改这里
 from maa.controller import (
-    Win32Controller,
-    MaaWin32ScreencapMethodEnum,
     MaaWin32InputMethodEnum,
+    MaaWin32ScreencapMethodEnum,
+    Win32Controller,
 )
 from maa.toolkit import Toolkit
-
-import packmeta  # 同目录：窗口身份从资源层的 interface.json 读，换资源层不必改这里
 
 OUT = Path(__file__).parent / "probe_screenshot.png"
 ASSET_DIR = Path(__file__).resolve().parent / "maaend"

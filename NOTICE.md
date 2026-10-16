@@ -26,6 +26,7 @@
 | 子树 | 许可 | 说明 |
 |---|---|---|
 | `executor/maaend/` | **AGPL-3.0** | MaaEnd 的游戏资源层，**原样分发、未修改**。许可证原件：`executor/maaend/LICENSE` |
+| `executor/maaend/maafw/`（仅此子目录） | **LGPL-3.0** | 例外：这 17 个原生 DLL 是 **MaaFramework** 的构建产物，随 MaaEnd 发行版一起分发，按 MaaFramework 自己的许可（原件：`executor/vendor/licenses/maafw-LICENSE.md`），不是 AGPL |
 | `executor/override/` | **AGPL-3.0** | 其中 `.ts` 复制自 MXU（MaaEnd 的桌面宿主）；`pipeline_override.py` / `pretask_builder.py` / `data.json` 是那份 TypeScript 的**移植**——移植属衍生作品，随原许可 |
 | `executor/vendor/` | 各自原许可 | 自带的 Python 运行时：CPython(PSF)、MaaFramework、numpy(BSD-3)、Pillow(MIT-CMU)、StrEnum(MIT)。许可原件在 `executor/vendor/licenses/` |
 | `executor/panel_server.py`、`runner.py`、`packmeta.py`、`start_panel.bat`、探测脚本 | **MIT** | 本项目自己编写 |

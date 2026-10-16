@@ -38,13 +38,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE))
-sys.path.insert(0, str(HERE / "override"))
+import packmeta  # 资源层自描述：窗口 / 项目身份 / 完整性
+import runner as R  # 复用已有执行器
+from override_gen import gen_override_object, load_interface
 
-import runner as R  # noqa: E402  复用已有执行器
-import packmeta  # noqa: E402  资源层自描述：窗口 / 项目身份 / 完整性
-from override_gen import gen_override_object, load_interface  # noqa: E402
+HERE = Path(__file__).resolve().parent
 
 # 资源层随插件分发（executor/maaend/）。--maaend-dir 可覆盖。
 DEFAULT_MAAEND = HERE / "maaend"

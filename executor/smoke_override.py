@@ -10,17 +10,11 @@
 不连控制器、不跑任务，只验证「编译产物合法」。
 """
 
-import json
 import sys
 from pathlib import Path
 
-HERE = Path(__file__).parent
-sys.path.insert(0, str(HERE / "override"))
-
-from maa.resource import Resource  # noqa: E402
-from maa.tasker import Tasker  # noqa: E402
-
-from override_gen import gen_override, gen_override_object, merge_overrides  # noqa: E402
+from maa.resource import Resource
+from override_gen import gen_override, gen_override_object, merge_overrides
 
 RES_DIR = str(Path(__file__).resolve().parent / "maaend" / "resource")
 

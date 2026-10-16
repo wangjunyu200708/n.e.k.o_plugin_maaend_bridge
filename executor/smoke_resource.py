@@ -10,9 +10,9 @@ import sys
 import time
 from pathlib import Path
 
-DEFAULT_RES = str(Path(__file__).resolve().parent / "maaend" / "resource")
+from maa.resource import Resource
 
-from maa.resource import Resource  # noqa: E402
+DEFAULT_RES = str(Path(__file__).resolve().parent / "maaend" / "resource")
 
 
 def main() -> int:

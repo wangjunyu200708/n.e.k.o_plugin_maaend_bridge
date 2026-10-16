@@ -12,21 +12,20 @@ import sys
 import time
 from pathlib import Path
 
-MAAEND_DIR = Path(__file__).resolve().parent / "maaend"
-
-import packmeta  # noqa: E402  同目录：窗口身份从资源层读，换资源层不必改这里
-LOG_DIR = Path(__file__).parent / "agent_logs"
-
-from maa.resource import Resource  # noqa: E402
-from maa.tasker import Tasker  # noqa: E402
-from maa.controller import (  # noqa: E402
-    Win32Controller,
-    MaaWin32ScreencapMethodEnum,
+import maa.library as _maalib
+import packmeta  # 同目录：窗口身份从资源层读，换资源层不必改这里
+from maa.agent_client import AgentClient
+from maa.controller import (
     MaaWin32InputMethodEnum,
+    MaaWin32ScreencapMethodEnum,
+    Win32Controller,
 )
-from maa.agent_client import AgentClient  # noqa: E402
-from maa.toolkit import Toolkit  # noqa: E402
-import maa.library as _maalib  # noqa: E402
+from maa.resource import Resource
+from maa.tasker import Tasker
+from maa.toolkit import Toolkit
+
+MAAEND_DIR = Path(__file__).resolve().parent / "maaend"
+LOG_DIR = Path(__file__).parent / "agent_logs"
 
 
 def load_jsonc(p: Path) -> dict:

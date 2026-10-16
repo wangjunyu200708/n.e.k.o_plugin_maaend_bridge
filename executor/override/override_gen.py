@@ -42,15 +42,13 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pipeline_override as _po
+import pretask_builder as _pb
+
 HERE = Path(__file__).resolve().parent
 DEFAULT_ASSETS = Path("E:/MaaEnddm/MaaEnd-2/assets")
 DEFAULT_CONTROLLER = "Win32-Front"
 DEFAULT_RESOURCE = "官服"
-
-sys.path.insert(0, str(HERE))
-
-import pipeline_override as _po  # noqa: E402
-import pretask_builder as _pb  # noqa: E402
 
 _interface_cache: dict | None = None
 _interface_cache_path: str | None = None

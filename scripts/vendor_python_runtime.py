@@ -56,14 +56,27 @@ REQUIRED_PACKAGES = (
 # The embeddable distribution ships its own licence; the rest come from the
 # distributions so the shipped set stays attributable.
 PTH_BODY = (
-    "python311.zip\n"      # stdlib. NOT "python3.11.9.zip" — see vendor/README.md
+    # ASCII only: `._pth` is read before the stdlib is up, so nothing here may
+    # depend on how the file's encoding gets decoded.
+    "python311.zip\n"      # stdlib. NOT "python3.11.9.zip" - see vendor/README.md
     ".\n"
     "..\\site-packages\n"
+    "..\\..\n"             # executor/          - the scripts, run by path
+    "..\\..\\override\n"   # executor/override/ - their sibling modules
     "\n"
     "# site-packages is listed here rather than passed via PYTHONPATH:\n"
     "# an embeddable Python with a _pth file is isolated and silently ignores\n"
-    "# PYTHONPATH. `import site` is deliberately absent — this site-packages\n"
+    "# PYTHONPATH. `import site` is deliberately absent - this site-packages\n"
     "# has no .pth files, so site processing has nothing to do.\n"
+    "#\n"
+    "# The last two entries exist for the same reason and one more. Isolated mode\n"
+    "# also leaves the script's own directory off sys.path: sys.path[0] is this\n"
+    "# zip, and the `.` above means the interpreter's directory, not the caller's.\n"
+    "# Without them a script could only reach its own siblings by calling\n"
+    "# sys.path.insert first - and that is a statement, so every import after it\n"
+    "# trips E402. The plugin market's verify workflow runs ruff with\n"
+    "# --ignore-noqa, which leaves no way to silence E402, so the paths belong\n"
+    "# here rather than in the scripts.\n"
 )
 
 
@@ -144,12 +157,24 @@ def check() -> int:
         problems.append(f"python/{PTH_NAME} is missing")
     else:
         body = pth.read_text(encoding="utf-8")
-        if "python311.zip" not in body:
+        entries = [
+            line.strip()
+            for line in body.splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
+        if "python311.zip" not in entries:
             problems.append(f"{PTH_NAME} does not list python311.zip "
                             f"(a dotted version there breaks the stdlib silently)")
-        if "site-packages" not in body:
+        if "..\\site-packages" not in entries:
             problems.append(f"{PTH_NAME} does not list site-packages "
                             f"(PYTHONPATH is ignored in isolated mode)")
+        # Isolated mode also keeps the script's own directory off sys.path, so
+        # the executor's two directories have to be named here or every script
+        # needs a sys.path.insert — which then makes all its imports E402.
+        for needed in ("..\\..", "..\\..\\override"):
+            if needed not in entries:
+                problems.append(f"{PTH_NAME} does not list {needed} "
+                                f"(executor scripts could not import their siblings)")
     for name, _ in REQUIRED_PACKAGES:
         if not (SPDIR / name).is_dir():
             problems.append(f"site-packages/{name} is missing")

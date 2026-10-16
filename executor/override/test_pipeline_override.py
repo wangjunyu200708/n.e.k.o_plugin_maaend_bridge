@@ -17,13 +17,9 @@
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE))
-
-import pipeline_override as P  # noqa: E402
-import pretask_builder as B  # noqa: E402
+import pipeline_override as P
+import pretask_builder as B
 
 # ---------------------------------------------------------------------------
 # 合成 interface：三种 pipeline_type + 嵌套 + hotkey
