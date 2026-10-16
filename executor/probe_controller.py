@@ -16,7 +16,10 @@ from maa.controller import (
 )
 from maa.toolkit import Toolkit
 
+import packmeta  # 同目录：窗口身份从资源层的 interface.json 读，换资源层不必改这里
+
 OUT = Path(__file__).parent / "probe_screenshot.png"
+ASSET_DIR = Path(__file__).resolve().parent / "maaend"
 
 
 def dump_enum(E, title):
@@ -37,10 +40,16 @@ def main() -> int:
 
     print()
     print("=== 1. 枚举窗口 ===")
+    pack = packmeta.read_pack(ASSET_DIR)
+    if pack is None or pack.win32 is None or not pack.win32.describes_a_window:
+        print(f"  [FAIL] 资源层没有声明可用的 Win32 窗口：{ASSET_DIR}")
+        return 1
+    spec = pack.win32
+    print(f"  资源层 {pack.label} 声明窗口: {spec.class_regex} / {spec.window_regex}")
     ws = Toolkit.find_desktop_windows()
-    hits = [w for w in ws if w.class_name == "UnityWndClass" and w.window_name == "Endfield"]
+    hits = [w for w in ws if w.class_name == spec.class_regex and w.window_name == spec.window_regex]
     if not hits:
-        print(f"  [FAIL] 未找到 Endfield 窗口（共 {len(ws)} 个窗口）")
+        print(f"  [FAIL] 未找到 {spec.class_regex}/{spec.window_regex} 窗口（共 {len(ws)} 个窗口）")
         return 1
     w = hits[0]
     print(f"  hwnd={w.hwnd}  class={w.class_name}  name={w.window_name}")

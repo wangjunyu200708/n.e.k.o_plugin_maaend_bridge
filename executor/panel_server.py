@@ -43,6 +43,7 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE / "override"))
 
 import runner as R  # noqa: E402  复用已有执行器
+import packmeta  # noqa: E402  资源层自描述：窗口 / 项目身份 / 完整性
 from override_gen import gen_override_object, load_interface  # noqa: E402
 
 # 资源层随插件分发（executor/maaend/）。--maaend-dir 可覆盖。
@@ -221,6 +222,9 @@ class Panel:
         self._last_node: str | None = None
         self._iface: dict | None = None
         self._T: Translator | None = None
+        # 资源层自报的家门（名字/版本/完整性）。缓存：它随进程不变，换资源层
+        # 本来就要重启这个进程。
+        self._pack_cache: dict | None = None
 
     # ---- 初始化 ----
 
@@ -242,6 +246,16 @@ class Panel:
                 return
             self.bus.emit("=== 初始化执行环境 ===")
             self.error = None
+            # 先查资源层完整性。缺声明时 MaaFw 会在很深的地方报一个看不出所以然
+            # 的错（或者在寻找某个并不存在的窗口时卡住），而"没装资源层""没有
+            # Win32 控制器声明"是现在就能说清的事。
+            pack = packmeta.read_pack(self.dir)
+            self._pack_cache = self._read_pack_info()
+            if pack is None or not pack.ok:
+                self.error = self._pack_problem_text(pack)
+                self.bus.emit(f"[FAIL] {self.error}", "error")
+                raise RuntimeError(self.error)
+            self.bus.emit(f"资源层：{pack.name} {pack.version}".rstrip())
             r = R.Runner(self.dir, log=True)
             try:
                 r.setup_resource()
@@ -475,7 +489,7 @@ class Panel:
     def tasks_payload(self) -> list[dict]:
         T = self.T
         out = []
-        for t in self.interface.get("task", []):
+        for t in self._task_defs():
             out.append(
                 {
                     "name": t.get("name"),
@@ -490,10 +504,8 @@ class Panel:
         return out
 
     def options_payload(self, task_name: str) -> dict:
-        defs = self.interface.get("option", {})
-        task = next(
-            (t for t in self.interface.get("task", []) if t.get("name") == task_name), None
-        )
+        defs = self._option_defs()
+        task = next((t for t in self._task_defs() if t.get("name") == task_name), None)
         if task is None:
             raise RuntimeError(f"未知任务 {task_name}")
         return {
@@ -501,6 +513,69 @@ class Panel:
             "label": self.T(task.get("label"), task_name),
             "tree": build_option_tree(task.get("option"), defs, self.T),
         }
+
+    def _task_defs(self) -> list:
+        """interface.json 里声明的任务；读不到就是空列表（原因见 _task_count）。"""
+        try:
+            tasks = self.interface.get("task", [])
+        except Exception:
+            return []
+        return tasks if isinstance(tasks, list) else []
+
+    def _option_defs(self) -> dict:
+        try:
+            options = self.interface.get("option", {})
+        except Exception:
+            return {}
+        return options if isinstance(options, dict) else {}
+
+    def _task_count(self) -> int:
+        """任务数；没有资源层时是 0，而不是把 /api/status 整个炸掉。
+
+        ``self.interface`` 走 ``load_interface``，它靠 build_interface.py 子进程
+        展开 import。没有 interface.json 时那个子进程直接失败 —— 而
+        ``/api/status`` 是上游的"你还活着吗"端点，抛出去会让连接被关掉、对方
+        只看到一个空响应，于是"没装资源层"这件事在插件侧完全不可见。
+        """
+        return len(self._task_defs())
+
+    # ---- 资源层自述 ----
+
+    def _read_pack_info(self) -> dict:
+        """资源层自报家门。任何情况下都不抛——它存在的意义就是报告异常状态。"""
+        try:
+            pack = packmeta.read_pack(self.dir)
+        except Exception as exc:
+            return {
+                "present": False, "name": "", "version": "", "license": "", "github": "",
+                "groups": [], "problems": [f"{type(exc).__name__}: {exc}"],
+            }
+        if pack is None:
+            return {
+                "present": False, "name": "", "version": "", "license": "", "github": "",
+                "groups": [],
+                "problems": [f"没有安装资源层（找不到 {self.dir / packmeta.INTERFACE_FILENAME}）"],
+            }
+        return {
+            "present": True,
+            "name": pack.name,
+            "version": pack.version,
+            "license": pack.license_ref,
+            "github": pack.github,
+            "groups": [str(g.get("name") or "") for g in pack.groups],
+            "problems": list(pack.problems),
+        }
+
+    def pack_info(self, *, refresh: bool = False) -> dict:
+        if self._pack_cache is None or refresh:
+            self._pack_cache = self._read_pack_info()
+        return self._pack_cache
+
+    @staticmethod
+    def _pack_problem_text(pack) -> str:
+        if pack is None:
+            return "没有安装资源层（缺少 interface.json）"
+        return "资源层不完整：" + "；".join(pack.problems)
 
     def status(self) -> dict:
         res = self.resolution
@@ -527,7 +602,10 @@ class Panel:
             "current": cur,
             "last_result": self.last_result,
             "error": self.error,
-            "task_count": len(self.interface.get("task", [])),
+            "task_count": self._task_count(),
+            # 哪一份资源层、叫什么、完整不完整。上层用它把"正在跑哪个游戏"讲对，
+            # 换掉资源层之后文案不需要跟着改代码。
+            "pack": self.pack_info(),
         }
 
     def dispose(self) -> None:

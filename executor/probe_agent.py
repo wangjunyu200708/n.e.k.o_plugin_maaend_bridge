@@ -13,6 +13,8 @@ import time
 from pathlib import Path
 
 MAAEND_DIR = Path(__file__).resolve().parent / "maaend"
+
+import packmeta  # noqa: E402  同目录：窗口身份从资源层读，换资源层不必改这里
 LOG_DIR = Path(__file__).parent / "agent_logs"
 
 from maa.resource import Resource  # noqa: E402
@@ -79,10 +81,15 @@ def main() -> int:
 
     print()
     print("=== 2. 连接控制器 ===")
+    pack = packmeta.read_pack(MAAEND_DIR)
+    if pack is None or pack.win32 is None or not pack.win32.describes_a_window:
+        print(f"  [FAIL] 资源层没有声明可用的 Win32 窗口：{MAAEND_DIR}")
+        return 1
+    spec = pack.win32
     ws = Toolkit.find_desktop_windows()
-    hits = [w for w in ws if w.class_name == "UnityWndClass" and w.window_name == "Endfield"]
+    hits = [w for w in ws if w.class_name == spec.class_regex and w.window_name == spec.window_regex]
     if not hits:
-        print("  [FAIL] 未找到 Endfield 窗口")
+        print(f"  [FAIL] 未找到 {spec.class_regex}/{spec.window_regex} 窗口")
         return 1
     w = hits[0]
     ctrl = Win32Controller(

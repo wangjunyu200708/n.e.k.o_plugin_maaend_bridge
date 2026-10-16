@@ -50,47 +50,15 @@ from maa.toolkit import Toolkit  # noqa: E402
 
 from override_gen import gen_override_object, load_interface  # noqa: E402
 
-WINDOW_CLASS = "UnityWndClass"
-WINDOW_NAME = "Endfield"
+import packmeta  # noqa: E402  同目录：资源层自描述（窗口 / 控制器 / 项目身份）
 
-
-def load_jsonc(p: Path) -> dict:
-    """interface.json 是 JSONC（带注释 / 尾逗号），不能直接 json.load。"""
-    import re
-
-    s = p.read_text(encoding="utf-8")
-    out, i, n = [], 0, len(s)
-    while i < n:
-        c = s[i]
-        if c == '"':
-            out.append(c)
-            i += 1
-            while i < n:
-                if s[i] == "\\":
-                    out.append(s[i : i + 2])
-                    i += 2
-                    continue
-                if s[i] == '"':
-                    break
-                out.append(s[i])
-                i += 1
-            out.append('"')
-            i += 1
-            continue
-        if c == "/" and i + 1 < n and s[i + 1] == "/":
-            while i < n and s[i] != "\n":
-                i += 1
-            continue
-        if c == "/" and i + 1 < n and s[i + 1] == "*":
-            i += 2
-            while i + 1 < n and not (s[i] == "*" and s[i + 1] == "/"):
-                i += 1
-            i += 2
-            continue
-        out.append(c)
-        i += 1
-    t = re.sub(r",(\s*[}\]])", r"\1", "".join(out))
-    return json.loads(t)
+# 窗口身份与控制器方法曾经写死在这里（UnityWndClass / Endfield / ScreenDC / Seize）。
+# 它们本来就在资源层的 interface.json 的 controller[].win32 里，写死就意味着
+# 「换掉这个游戏的资源层」必须改代码。现在从 packmeta 读，缺声明就明确报错。
+#
+# 这里原本还有一份 load_jsonc，定义了从未被调用过（真正的解析在
+# override/build_interface.py 里，它展开 import 时才用）。已删除；本文件现在
+# 需要读 interface.json 时走 packmeta.load_jsonc。
 
 
 class Runner:
@@ -100,6 +68,9 @@ class Runner:
         # 用展开 import 后的版本：发行版 interface.json 顶层 task 为空，
         # 46 个任务全在 tasks/*.json 里通过 import 引入
         self.interface = load_interface(str(self.dir))
+        # 资源层自己声明要什么窗口、用什么控制器方法（controller[].win32）。
+        # 这条路不展开 import，也不碰 Node —— 它是状态路径，不是任务路径。
+        self.pack = packmeta.read_pack(Path(self.dir))
         self.resource: Resource | None = None
         self.controller: Win32Controller | None = None
         self.tasker: Tasker | None = None
@@ -112,11 +83,33 @@ class Runner:
 
     # ---------- 各阶段 ----------
 
+    def _win32_spec(self) -> packmeta.Win32Controller:
+        """资源层声明的窗口/控制器信息。
+
+        缺失就明确失败，**不猜**。以前这里是硬编码的 UnityWndClass/Endfield，
+        那意味着换一份资源层（另一个游戏）必须改代码；而如果改成"读不到就用
+        默认值"，换层之后执行器会去附着一个不存在或错误的窗口，且什么都不报 ——
+        正是这次要消掉的那种静默错误。
+        """
+        pack = self.pack
+        if pack is None:
+            raise RuntimeError(
+                f"资源层目录里没有 {packmeta.INTERFACE_FILENAME}：{self.dir}"
+            )
+        if pack.win32 is None or not pack.win32.describes_a_window:
+            raise RuntimeError(
+                f"资源层没有声明可用的 Win32 窗口"
+                f"（{packmeta.INTERFACE_FILENAME} 的 controller[].win32 "
+                f"缺 class_regex / window_regex）：{self.dir}"
+            )
+        return pack.win32
+
     def find_window(self):
+        win32 = self._win32_spec()
         hits = [
             w
             for w in Toolkit.find_desktop_windows()
-            if w.class_name == WINDOW_CLASS and w.window_name == WINDOW_NAME
+            if w.class_name == win32.class_regex and w.window_name == win32.window_regex
         ]
         return hits[0] if hits else None
 
@@ -192,19 +185,41 @@ class Runner:
 
     def setup_controller(self) -> None:
         self.log("[2/5] 查找窗口 ...")
+        win32 = self._win32_spec()
         w = self.find_window()
         if w is None:
-            raise RuntimeError(f"未找到 {WINDOW_CLASS}/{WINDOW_NAME} 窗口，请先启动游戏")
+            raise RuntimeError(
+                f"未找到 {win32.class_regex}/{win32.window_regex} 窗口，请先启动游戏"
+            )
         self.log(f"      hwnd={w.hwnd}")
         self._hwnd = w.hwnd
         front = self._bring_to_front(w.hwnd)
         self.log(f"      窗口已置前={front}  （False 表示点击可能投递给别的窗口）")
 
+        def pick(enum_cls, declared: str, fallback):
+            """资源层声明的方法名 → MaaFw 枚举成员。
+
+            不认识的名称用兜底并**记一笔**：静默兜底会让人以为按声明跑上了。
+            也不用 ``getattr(...) or fallback`` —— 枚举成员可能是 0，会被误判成缺失。
+            """
+            member = getattr(enum_cls, declared, None)
+            if member is None:
+                self.log(f"      [warn] 资源层声明了未知的 {declared}，改用 {fallback.name}")
+                return fallback
+            return member
+
+        self.log(f"      控制器 {win32.name}: {win32.screencap}/{win32.mouse}+{win32.keyboard}")
         c = Win32Controller(
             ctypes.c_void_p(w.hwnd),
-            screencap_method=MaaWin32ScreencapMethodEnum.ScreenDC,
-            mouse_method=MaaWin32InputMethodEnum.Seize,
-            keyboard_method=MaaWin32InputMethodEnum.Seize,
+            screencap_method=pick(
+                MaaWin32ScreencapMethodEnum, win32.screencap, MaaWin32ScreencapMethodEnum.ScreenDC
+            ),
+            mouse_method=pick(
+                MaaWin32InputMethodEnum, win32.mouse, MaaWin32InputMethodEnum.Seize
+            ),
+            keyboard_method=pick(
+                MaaWin32InputMethodEnum, win32.keyboard, MaaWin32InputMethodEnum.Seize
+            ),
         )
         self._bring_to_front(w.hwnd)
         c.post_connection().wait()
