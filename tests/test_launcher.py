@@ -136,6 +136,153 @@ def test_the_compiler_check_looks_for_python_not_the_node_entry_point():
 
 
 # ---------------------------------------------------------------------------
+# The interpreter that ships with the plugin
+# ---------------------------------------------------------------------------
+
+
+def test_the_bundled_interpreter_is_found_where_it_should_be():
+    found = launcher.bundled_interpreter(EXECUTOR)
+    assert found.endswith("python.exe")
+    assert "vendor" in found
+
+
+def test_no_bundled_interpreter_is_a_normal_answer(tmp_path):
+    """A build may deliberately ship without it (~150 MiB), and the plugin has
+    to fall back to a machine-wide interpreter rather than claiming a problem."""
+    assert launcher.bundled_interpreter(tmp_path) == ""
+    assert launcher.bundled_interpreter(None) == ""
+
+
+def test_a_build_without_the_bundled_runtime_still_proposes_candidates(tmp_path):
+    assert launcher.candidate_interpreters(executor=tmp_path), (
+        "without the bundled runtime there must still be something to try"
+    )
+
+
+def test_explicit_beats_shipped_beats_recorded():
+    """The precedence that makes an upgrade to a self-contained build take.
+
+    A machine that already ran an earlier, non-self-contained version has a
+    ``python_path.txt`` pointing at a system interpreter. Putting the recorded
+    hint above the bundled one would keep using it forever, which defeats the
+    point of shipping the runtime at all.
+    """
+    candidates = launcher.candidate_interpreters(
+        configured="D:/explicit/python.exe",
+        hint="D:/recorded/python.exe",
+        executor=EXECUTOR,
+    )
+    bundled = launcher.bundled_interpreter(EXECUTOR)
+    assert candidates[0] == "D:/explicit/python.exe"
+    assert bundled in candidates
+    assert candidates.index(bundled) < candidates.index("D:/recorded/python.exe")
+
+
+# ---------------------------------------------------------------------------
+# The vendored runtime covers what the executor actually imports
+# ---------------------------------------------------------------------------
+
+
+def _third_party_imports() -> set:
+    """Every non-stdlib, non-local module the executor's runtime modules import.
+
+    Derived from the source on purpose. A hand-maintained list of "packages we
+    vendor" is exactly what let Pillow be missed: ``smoke_resource`` exercises
+    the resource layer but never ``panel_server.screenshot_png()``, so a missing
+    Pillow passed every acceptance run and would have surfaced much later as a
+    503 the first time somebody asked for a picture. Scanning imports cannot go
+    stale.
+    """
+    import ast
+    import sys
+
+    local = {
+        "runner", "packmeta", "override_gen", "pipeline_override",
+        "pretask_builder", "build_interface",
+    }
+    stdlib = set(sys.stdlib_module_names)
+    needed: set = set()
+    for rel in ("panel_server.py", "runner.py", "packmeta.py"):
+        tree = ast.parse((EXECUTOR / rel).read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                names = [alias.name.split(".")[0] for alias in node.names]
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                names = [node.module.split(".")[0]]
+            else:
+                continue
+            for name in names:
+                if name in stdlib or name in local or name == "__future__":
+                    continue
+                needed.add(name)
+    return needed
+
+
+def test_every_third_party_import_the_executor_needs_is_vendored():
+    needed = _third_party_imports()
+    assert needed, "the scan found nothing — it is probably broken"
+    vendored = {
+        entry.name
+        for entry in (EXECUTOR / "vendor" / "site-packages").iterdir()
+        if entry.is_dir()
+    }
+    missing = sorted(name for name in needed if name not in vendored)
+    assert not missing, (
+        f"the vendored runtime is missing {missing}; the executor imports them "
+        f"but nothing ships them"
+    )
+
+
+def test_numpy_is_not_optional_for_the_binding():
+    """Pins the finding that ruled out the "cut numpy, save 53 MiB" option.
+
+    numpy is imported at module level by ``maa`` itself, so it cannot be
+    dropped without patching the wheel — the screenshot conversion is just the
+    reason *we* import it too.
+    """
+    vendored_maa = EXECUTOR / "vendor" / "site-packages" / "maa"
+    if not vendored_maa.is_dir():
+        pytest.skip("vendored runtime not present")
+    module_level = []
+    for path in vendored_maa.rglob("*.py"):
+        for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+            if line.startswith(("import numpy", "from numpy")):
+                module_level.append(path.name)
+    assert len(module_level) >= 5, (
+        f"only {len(module_level)} module-level numpy imports found in maa; if the "
+        f"binding stopped importing numpy at import time, revisit whether it must ship"
+    )
+
+
+def test_the_vendored_runtime_has_numpy_libs_as_a_sibling():
+    """``numpy.libs`` is not matched by ``numpy*`` and not importable.
+
+    Dropping it gives ``DLL load failed while importing _multiarray_umath`` —
+    a failure that names a completely different module than the one missing.
+    """
+    libs = EXECUTOR / "vendor" / "site-packages" / "numpy.libs"
+    if not (EXECUTOR / "vendor" / "site-packages" / "numpy").is_dir():
+        pytest.skip("vendored runtime not present")
+    assert libs.is_dir()
+
+
+def test_the_path_file_points_at_site_packages_and_the_stdlib_zip():
+    """Both halves of the ``_pth`` gotcha, which fails silently either way."""
+    pth = EXECUTOR / "vendor" / "python" / "python311._pth"
+    if not pth.is_file():
+        pytest.skip("vendored runtime not present")
+    body = pth.read_text(encoding="utf-8")
+    assert "python311.zip" in body, (
+        "a dotted version there (python3.11.9.zip) makes the stdlib unfindable "
+        "and python.exe dies with '<no Python frame>'"
+    )
+    assert "site-packages" in body, (
+        "an embeddable Python with a _pth is isolated: PYTHONPATH is ignored, "
+        "so the path has to be listed here"
+    )
+
+
+# ---------------------------------------------------------------------------
 # describe()
 # ---------------------------------------------------------------------------
 

@@ -5,7 +5,10 @@ __pycache__/
 .ruff_cache/
 .venv/
 venv/
-vendor/
+# 插件根下的 vendor/ 是宿主的依赖 vendoring 目录（`neko-plugin sync` 的产物），
+# 不进仓库。**锚定到根**：不带前导斜杠的 `vendor/` 会连带忽略
+# `executor/vendor/`——那是我们自带的 Python 运行时，必须进仓库。
+/vendor/
 /.vendor.staging-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]
 /.vendor.backup-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]
 /.vendor.backup-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].pending
@@ -25,3 +28,9 @@ executor/python_path.txt
 executor/*.log
 executor/override/interface.merged.json
 executor/override/interface.dist.json
+
+# ── 自带 Python 运行时里被上面的规则误伤的东西 ──────────────────────
+# `*.py[cod]` 那条本意是忽略字节码，但它也匹配 `.pyd` —— 而 `.pyd` 是编译好的
+# 扩展模块（Windows DLL），**不是**字节码。少了 `python/_socket.pyd` 或 numpy 的
+# `_multiarray_umath.*.pyd`，自带的解释器直接不可用，而 git 不会给任何提示。
+!executor/vendor/**/*.pyd

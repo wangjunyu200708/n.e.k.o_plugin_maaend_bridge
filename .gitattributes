@@ -13,3 +13,9 @@ executor/override/golden/*.json -text
 # 批处理必须 CRLF（executor/fix_bat.py 就是干这个的），而 -text 会原样保留
 # 我写进仓库的 LF——cmd.exe 对 LF 结尾的 .bat 在某些分支上会误解析。
 executor/*.bat text eol=crlf
+
+# ── 自带的 Python 运行时：绝不能被行尾规范化碰到 ────────────────────
+# 里面是 python.exe / python311.dll / python311.zip / onnxruntime_maa.dll
+# 这类二进制。git 的 text=auto 靠启发式判断二进制，但那是启发式——一旦判错，
+# 改一个字节，DLL 或 stdlib 的 zip 就废了，而症状是解释器起不来。
+executor/vendor/** -text

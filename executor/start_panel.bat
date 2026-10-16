@@ -25,10 +25,12 @@ rem  A plugin-shipped copy of the executor, so the interpreter is
 rem  NOT necessarily the one N.E.K.O. runs on. The only reliable
 rem  test is importing maa.
 rem
-rem  Order: NEKO_MAAEND_PYTHON -> python_path.txt (written by the
-rem  plugin's settings panel) -> py -3.11 -> python.
+rem  Order matches the plugin side (launcher.candidate_interpreters):
+rem  explicit > shipped with the plugin > recorded > whatever is on PATH.
+rem  The shipped one is normally what wins -- the plugin carries its own
+rem  Python so that no machine-wide install is needed.
 set "PY="
-for %%C in ("%NEKO_MAAEND_PYTHON%" "py -3.11" "python") do (
+for %%C in ("%NEKO_MAAEND_PYTHON%" "%~dp0vendor\python\python.exe" "py -3.11" "python") do (
     if not defined PY (
         %%~C -c "import maa" >nul 2>&1
         if not errorlevel 1 set "PY=%%~C"
@@ -42,7 +44,8 @@ if not defined PY (
     )
 )
 if not defined PY (
-    echo [ERROR] No Python 3.11 with MaaFramework found.
+    echo [ERROR] No Python with MaaFramework found, including the one that
+    echo         ships in vendor\python. The install looks incomplete.
     echo         Check a candidate with:  ^<python^> -c "import maa"
     echo         Then point the plugin setting "executor_python" at it,
     echo         or set the NEKO_MAAEND_PYTHON environment variable.

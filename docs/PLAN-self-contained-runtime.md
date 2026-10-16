@@ -1,108 +1,94 @@
-# 待办：把最后一个前置条件也塞进插件（自带 Python 运行时）
+# 已完成：自带 Python 运行时
 
-**状态：未开工。** 只剩一件事了——Node 那条已经由移植解决（见下）。
+**状态：已落地（2026-10-16）。** 插件现在**无需任何前置条件**——不用装 Python、
+不用 pip 装 MaaFramework、不用装 Node。
 
-## 目标
+重建/校验入口：`scripts/vendor_python_runtime.py`（`--check` / `--report` / 不带参数则构建）。
+每样东西的来源、许可与取舍写在 `executor/vendor/README.md`。
 
-消除装机时的外部依赖，做到「装完插件即可用」。原本有两个前置条件：
+---
 
-| 前置条件 | 现状 |
-|---|---|
-| Node 22.6+ | ✅ **已消除**：override 编译器移植成纯 Python，运行时零外部进程 |
-| 装了 MaaFramework 的 Python 3.11 | ⬜ 待做：自带一个解释器 + 三方包 |
+## 实际结果
 
-## Node 那条怎么没的
-
-`override/` 原本直接跑 MXU 前端的 TypeScript（`node cli.ts`）。2026-10-16 移植为
-`pipeline_override.py` + `pretask_builder.py` + `data.json`，等价性由
-`golden_test.py --check`（11 份 TS 生成的冻结快照逐节点比对）与
-`test_pipeline_override.py`（合成 interface 钉死 `??` vs `||`、`{}` truthy、
-`$&` 这类语言语义陷阱）两层兜住。Node 只剩维护期用途，不进运行时。
-
-> 原本这里记的是「Node 走塞进去（+87 MB）」。**那条决定已作废**——直接从
-> 依赖里消失，而不是打包进去。少 87 MB，也少一层"用户得装对版本"的坑。
-
-## 剩下的硬约束（已查实，不是猜）
-
-**宿主没有可复用的 python.exe。**
-
-- `resources/bin/` 里唯一的 exe 是 `projectneko_server.exe`，而它是 **Nuitka 编译**
-  的产物（`scripts/check_dist_arch.py:189` 提到 "macOS wraps the Nuitka output in
-  …app"）——Python 被编进那个 exe 里了，它跑不了别的脚本
-- 顶层只有 `N.E.K.O.exe`（Electron）
-- `resources/bin/` 里有 `python311.dll` / `python3.dll`，但**没有 python.exe**
-
-执行器必须是**独立的提权进程**（Seize 的硬约束），所以它必须自带解释器。
-
-## 放哪儿：`executor/vendor/`，不是插件根的 `vendor/`
-
-**这是已验证的坑。** 宿主 `resources/bin/` 里**已经有 numpy**（还有 PIL、aiohttp、
-cryptography 一整套）。而 `plugin/core/host.py:472` 的
-`_prepare_child_plugin_vendor_path()` 会把插件根的 `vendor/` 插到**插件进程**的
-`sys.path` 前面——两份 numpy 版本不同就会互相干扰，而插件进程里的宿主 SDK 代码
-也在用 numpy。
-
-所以放 `executor/vendor/`，由 `launcher.py` 起执行器时**只给执行器进程**。
-插件进程照旧走 HTTP 连它，一行 sys.path 都不碰。
-
-（`neko-plugin sync` 默认同步到插件根 `vendor/`，所以这里不走 sync，或同步后移动。）
-
-## 两块内容与来源
-
-| 内容 | 体积 | 从哪来 |
+| | 计划估的 | 实际 |
 |---|---|---|
-| embeddable Python 3.11.9 | ~15 MB | `https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip`（需下载） |
-| `site-packages/`：maa + numpy + strenum + maaagentbinary | ~85 MB | 从本机 `C:\Users\25672\AppData\Local\Python\pythoncore-3.11-64\Lib\site-packages\` 复制 |
+| 体积 | ~100 MiB | **149.3 MiB / 1914 文件** |
+| 组成 | Python + maa + numpy + strenum | 以上 **+ PIL**（漏计了），numpy 2.4.4 也比预估大 |
 
-maa 是 **纯 Python + DLL**（57 个文件，只有 `.dll` / `.py` / `.pyc`，**没有 `.pyd`**），
-所以不吃 Python ABI 补丁版本；但 numpy 有 `.pyd`，是 cp311 绑定 —— 所以 embed 版
-必须是 3.11。
+插件工作区合计 **456 MiB**（资源层 299 + 运行时 154），`.neko-plugin` 同量级。
 
-**许可证要一起带**：Python 的 LICENSE（PSF）。
+---
 
-## 关键坑：embeddable Python 默认是 isolated 的
+## 与计划的四处偏差（这才是以后有用的部分）
 
-embeddable 发行版带一个 `python311._pth`，它的存在会让 Python 进入 isolated 模式
-——**`PYTHONPATH` 不生效**，`site` 也不自动 import。直接把 `site-packages` 指过去会
-静默不生效（表现为 `import maa` 失败，但解释器本身跑得好好的）。
+### 1. `import site` 实测**不需要**（计划里说要）
 
-正解是改 `_pth`：
+计划照搬了探测阶段的结论。实际把 `_pth` 写成只列路径、不加 `import site`，三条验收
+全过——包括真正加载 MaaFramework.dll 与 numpy 数组的那条。
 
-```
-python311.zip
-.
-..\site-packages
-```
+判断依据是可查的，不是碰运气：**本 `site-packages` 下没有任何 `.pth` 文件**，
+所以 `site` 的处理对我们这套导入无事可做。（当初得出"必须加"很可能是与 zip 名
+那个坑一起改的，而真正起作用的是 zip 名。）
 
-这样 `site-packages` 就稳定在 `sys.path` 上，且不依赖环境变量（确定性更好）。
+**如果将来 vendor 进来的包带了 `.pth`，就要把它加回去。** 判据：
+`find executor/vendor/site-packages -maxdepth 1 -name '*.pth'` 非空。
 
-## 验收（必须用 vendor 环境跑，不是本机解释器）
+### 2. PIL 是计划的漏项，而**两条验收都碰不到它**
 
-两条现成的端到端证据，跑通即证明「零外部依赖」成立：
+`panel_server.screenshot_png()` 用 `PIL.Image` 把截图落成 PNG。计划里没列它，是因为
+列清单时想的是"驱动 MaaFramework 需要什么"，而截图那条路不在其中。
+
+危险在于它**不会被任何一条验收暴露**：`smoke_resource` 只加载资源层，`Resource()`
+实例化也只走 MaaFramework。缺 Pillow 的表现是——所有验收全绿，而第一次有人要截图
+时拿到一个 503。
+
+现在由 `tests/test_launcher.py::test_every_third_party_import_the_executor_needs_is_vendored`
+兜住：它**从源码 AST 推导**执行器真正 import 的三方包，再逐个核对是否在 vendor 里。
+不维护清单，就不会有清单过期。
+
+### 3. `MaaAgentBinary/` 刻意不带（3 MiB）
+
+它是 **Android ADB 的 agent 二进制**（maatouch / minicap）。本桥只走 `Win32-Front`，
+永远不构造 ADB 控制器；`maa/controller.py` 里对它的引用在 ADB 控制器类的方法内，
+惰性求值。要支持 ADB 时放回 `site-packages/` 即可。
+
+### 4. numpy 砍不掉（否掉了一条体积方案）
+
+"numpy 只用来把截图转 ndarray，砍掉省 53 MiB"这个前提不成立：`maa` 包里有 **7 个
+模块在模块级 `import numpy`**（`define.py` / `controller.py` / `resource.py` /
+`tasker.py` / `buffer.py` / `context.py` / `custom_recognition.py`），它是
+MaaFramework Python 绑定的 import 期硬依赖。砍它要改 wheel。
+
+DirectML（-17.7 MiB）同理不建议：它占整包 4%，换的是识别密集流水线的 GPU 推理。
+
+---
+
+## 验收（必须用**自带**的解释器跑）
 
 ```bash
-# 资源层加载（应 5809 节点、hash 8a3b256b99ec48e1）
-executor/vendor/python/python.exe executor/smoke_resource.py
-
-# override 编译器等价性（应 11/11；纯 Python，不需要 Node）
-executor/vendor/python/python.exe executor/override/golden_test.py --check
-
-# 语义边界
-executor/vendor/python/python.exe executor/override/test_pipeline_override.py
+cd executor
+vendor/python/python.exe smoke_resource.py maaend/resource   # 应 5809 节点、hash 8a3b256b99ec48e1
+vendor/python/python.exe override/golden_test.py --check      # 应 11/11
+vendor/python/python.exe override/test_pipeline_override.py   # 应全过
+vendor/python/python.exe -c "import io,numpy as np; from PIL import Image; \
+b=io.BytesIO(); Image.fromarray(np.zeros((720,1280,4),dtype=np.uint8)).save(b,'PNG'); \
+print('ok', len(b.getvalue()))"                                # 截图那条路
 ```
 
-## 落地后要改的地方
+第一条是最有分量的：5809 节点 + 与系统解释器一致的 resource hash，意味着
+MaaFramework.dll、numpy、ONNX/opencv 的 DLL 全部解析成功。
 
-- `launcher.py`：`candidate_interpreters()` 把 `executor/vendor/python/python.exe`
-  排在探测顺序**最前**
-- README 的「一个前置条件」一节改成「无需前置条件」+ 一节「自带运行时的来源与许可」
-- `scripts/sync_maaend_assets.py` 的 `SKIP_REASONS` 里 `maafw` 那条现在是
-  「pip 的 maa wheel 自带同一套 DLL」——落地后要改成「已由 vendor/site-packages 提供」
-- `.gitignore`：不要 ignore `executor/vendor/`（要进仓库）；确认 `.gitattributes`
-  对 `executor/vendor/**` 也走 `-text`（里面的二进制不能被行尾规范化碰）
+**仍需真机验证的部分**：以上都不碰游戏。提权、窗口置前、Seize 输入这条链路
+（也就是 `runner.setup_controller()` 之后的一切）只能进游戏才验得了。
 
-## 体积后果（要提前想）
+---
 
-302 MiB → **~402 MiB**（Node 那 87 MB 不再需要）。`.neko-plugin` 包会是这个量级，
-从插件中心导入会明显变慢（解压 + 校验 400MB）。如果要做市场分发，值得先评估
-「首次运行下载资源层」这类方案——不过那是另一件事，不影响本次落地。
+## 已查实但未使用的两条备选（留档）
+
+- **不能复用宿主解释器**：`N.E.K.O.exe` 是 Electron；后端 `projectneko_server.exe`
+  是打包产物（PyInstaller/Nuitka），Python 被编进那个 exe，`sys.executable` 指向
+  bootloader、`sys.path` 冻结，既不能 `pip install --target` 也不能拿它跑脚本。
+  执行器又必须是独立提权进程，所以自带解释器是唯一解。
+- **资源层可以完全不随包**：`maaend_dir` 配置项优先于自带的 `executor/maaend/`。
+  这是"随时撤掉某个游戏的资产"最直接的落地方式——插件其余部分照常工作，只是
+  没有资源层时如实说明并不让派活。

@@ -71,15 +71,60 @@ def write_python_hint(executor: Path, interpreter: str) -> None:
         pass
 
 
-def candidate_interpreters(*, configured: str = "", hint: str = "") -> List[str]:
-    """Interpreters worth probing, most specific first.
+VENDOR_DIRNAME = "vendor"
+VENDOR_PYTHON_SUBPATH = Path(VENDOR_DIRNAME) / "python" / "python.exe"
 
-    ``py -3.11`` is kept as a single string rather than resolved to a path: the
-    launcher is a small shim, and resolving it would lose the version pin that
-    is the whole reason to prefer it.
+
+def bundled_interpreter(executor: Optional[Path]) -> str:
+    """The interpreter that ships inside the plugin, or ``""`` when absent.
+
+    This is what makes the plugin self-contained. MaaFramework, numpy and
+    Pillow all travel with it (see ``executor/vendor/README.md``), so a machine
+    with no Python installed at all can still run tasks — which also means the
+    version of every one of those is ours, not whatever the user happened to
+    have.
+
+    Absent is a normal state, not an error: a build may deliberately ship
+    without it (it is ~150 MiB), and then a machine-wide interpreter is used.
+    """
+    if executor is None:
+        return ""
+    candidate = Path(executor) / VENDOR_PYTHON_SUBPATH
+    try:
+        return str(candidate) if candidate.is_file() else ""
+    except OSError:
+        return ""
+
+
+def candidate_interpreters(
+    *, configured: str = "", hint: str = "", executor: Optional[Path] = None
+) -> List[str]:
+    """Interpreters worth probing, in the order we would rather use them.
+
+    Precedence is deliberate — **explicit > shipped > recorded > ambient**:
+
+    1. ``executor_python`` (the setting) and ``NEKO_MAAEND_PYTHON``: somebody
+       said so on purpose.
+    2. the interpreter bundled in ``executor/vendor``: the one this build was
+       verified against, and the only one that exists on a machine with no
+       Python at all.
+    3. ``python_path.txt``: recorded from an earlier *successful* probe. Below
+       the bundled one on purpose — an install that upgrades to a
+       self-contained build has a stale hint pointing at a system interpreter,
+       and that must not shadow the runtime we ship.
+    4. common install locations, ``py -3.11``, then whatever is on ``PATH``.
+
+    ``py -3.11`` stays a single string rather than being resolved to a path:
+    it is a shim, and resolving it would lose the version pin that is the whole
+    reason to prefer it.
     """
     candidates: List[str] = []
-    for value in (configured, hint, os.environ.get("NEKO_MAAEND_PYTHON", "")):
+    for value in (configured, os.environ.get("NEKO_MAAEND_PYTHON", "")):
+        text = (value or "").strip().strip('"')
+        if text and text not in candidates:
+            candidates.append(text)
+
+    for value in (bundled_interpreter(executor), hint):
         text = (value or "").strip().strip('"')
         if text and text not in candidates:
             candidates.append(text)
@@ -160,7 +205,9 @@ def resolve_interpreter(
     """
     hint = read_python_hint(executor) if executor is not None else ""
     tried: List[str] = []
-    for candidate in candidate_interpreters(configured=configured, hint=hint):
+    for candidate in candidate_interpreters(
+        configured=configured, hint=hint, executor=executor
+    ):
         ok, detail = probe_interpreter(candidate, use_cache=use_cache)
         if ok:
             if executor is not None and candidate != hint:
@@ -361,8 +408,11 @@ __all__ = [
     "ASSET_PACK_INTERFACE",
     "DEFAULT_PORT",
     "PYTHON_HINT_FILENAME",
+    "VENDOR_DIRNAME",
+    "VENDOR_PYTHON_SUBPATH",
     "asset_pack_dir",
     "asset_pack_problems",
+    "bundled_interpreter",
     "candidate_interpreters",
     "describe",
     "executor_dir",

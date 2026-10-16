@@ -12,21 +12,28 @@
 
 ---
 
-## 一个前置条件
+## 无需前置条件
 
-| 需要 | 为什么 | 不满足时 |
+装完插件就能跑。**不用装 Python，不用 pip 装 MaaFramework，不用装 Node。**
+
+插件自带三样东西：
+
+| 自带 | 体积 | 为什么 |
 |---|---|---|
-| **一个装了 MaaFramework 的 Python 3.11** | 执行器用 pip 的 `maa` 绑定驱动 MaaFramework（那份 wheel 自带全部 17 个原生 DLL，所以发行版里 `maafw/` 那 61 MiB 不用带） | 插件在设置里给候选清单和失败原因；`<python> -c "import maa"` 是唯一可靠的验证 |
+| **Python 3.11.9 解释器** | ~10.7 MB | 宿主没有可复用的解释器：`N.E.K.O.exe` 是 Electron，后端是打包过的 exe（Python 编在里面），`sys.executable` 指向 bootloader、`sys.path` 冻结。而执行器必须是独立的**提权**进程（Seize 的硬约束），所以它必须自带解释器 |
+| **MaaFramework + numpy + Pillow** | ~139 MB | 见 `executor/vendor/README.md`（含每个包的来源、许可，以及 `_pth` 的两个静默坑） |
+| **override 编译器（纯 Python）** | 小 | 原本跑 MXU 的 TypeScript，现在是 Python 移植；等价性由 11 份冻结快照 + 语义边界测试保证 |
 
-**为什么不需要 Node**：`override/` 的编译器原本直接跑 MXU 前端的 TypeScript
-（`node cli.ts`），分发时要连带 87 MB 的 Node 运行时、用户还得装对版本。它现在是
-**纯 Python 移植**（`pipeline_override.py` + `pretask_builder.py` + `data.json`），
-运行时零外部进程。等价性由两层网兜住：`golden_test.py --check` 与 TS 版生成的
-**11 份冻结快照逐节点比对**，外加 `test_pipeline_override.py` 用合成 interface
-钉死 TS→Python 的语言语义陷阱（`??` vs `||`、`{}` 的 truthy、`$&` 不是 Python 语法）。
-Node 只剩在两处**维护期**用途：`dump_data.ts`（MXU 升级时重新导出数据表）与
-`golden_test.py --compare/--update`（拿 TS 当对照组）。升级流程见
-`executor/override/SOURCE.txt`。
+顺带一个好处：这三个的版本是**我们的**，不是用户碰巧装的那个。
+
+解释器仍然可覆盖，优先级是 **显式 > 自带 > 记录过 > 环境里的**：
+
+1. `executor_python` 设置项 / `NEKO_MAAEND_PYTHON` 环境变量
+2. 自带的 `executor/vendor/python/python.exe`
+3. `executor/python_path.txt`（历次成功探测记下来的；**排在自带之后**是有意的——从旧版升上来的机器那个文件指向系统 Python，让它压过自带的就等于自带白带了）
+4. 常见安装路径 → `py -3.11` → `PATH` 里的 `python`
+
+探测的判据始终是 `<python> -c "import maa"` 能过——解释器存在与否说明不了它装没装 MaaFramework。
 
 解释器会按 `NEKO_MAAEND_PYTHON` → 插件配置 → `executor/python_path.txt` →
 常见安装路径 → `py -3.11` → `python` 的顺序探测，**逐个跑 `import maa` 验证**。
@@ -185,8 +192,13 @@ loopback），必须经插件后端代理，这也正好让令牌不落进浏览
 executor/                     自建执行器（独立进程，不被 import）
 ├── panel_server.py           HTTP API + SSE + 日志总线
 ├── runner.py                 资源/控制器/agent/任务
+├── packmeta.py               读资源层的自描述（窗口/控制器/项目身份），供 runner 用
 ├── run_elevated.py           命令行跑单个任务的提权包装
 ├── start_panel.bat           手动启动器（自动请求提权）
+├── vendor/                   ★ 自带的 Python 运行时（149 MiB，见 vendor/README.md）
+│   ├── python/               embeddable CPython 3.11.9 + python311._pth
+│   ├── site-packages/        maa / numpy(+numpy.libs) / strenum / PIL
+│   └── licenses/             上述各包与 CPython 的许可原件
 ├── override/                 option → pipeline_override 编译器
 │   ├── pipeline_override.py    ★ 运行时实现（从 MXU 的 TS 移植）
 │   ├── pretask_builder.py      ★ pretask 启动参数（同上）
@@ -233,12 +245,28 @@ python scripts/sync_maaend_assets.py --report          # 只看当前带了什�
 
 ## 体积
 
-仓库里带了 293 MiB 的第三方资产（2265 个文件），最大单文件 93.8 MiB
-（`resource/model/map/navmesh/base.nav.gz`）。这有两个后果：
+工作区 **456 MiB**，两块大的都是"自带的第三方东西"：
 
-- **首次 `git clone` 与 CI checkout 会明显变慢**，`.neko-plugin` 包也会是 ~300 MiB。
-- 最大文件**低于 GitHub 的 100 MiB 硬限制**（但高于 50 MiB 的警告线）。
-  再加更大的模型时先看这条线。
+| | 体积 |
+|---|---|
+| `executor/maaend/` 游戏资源层（2265 文件，AGPL-3.0） | 299 MiB |
+| `executor/vendor/` Python 运行时（1914 文件） | 154 MiB |
+
+最大单文件仍是 93.8 MiB（`resource/model/map/navmesh/base.nav.gz`）——**低于
+GitHub 的 100 MiB 硬限制**（但高于 50 MiB 的警告线）。再加更大的模型前先看这条线。
+
+三个后果：
+
+- **首次 `git clone` 与 CI checkout 会明显变慢**
+- **`.neko-plugin` 包会是 ~450 MiB**，从插件中心导入要解压 + 校验这个量级
+- 如果要走市场分发，值得先评估「首次运行再下载资源层」这类方案；不过那是另一件事
+
+想减体积的话，按"代价从低到高"：
+
+1. **不随包资源层** —— 把 `maaend_dir` 指向用户自己的目录（插件其余部分照常工作）
+2. **不随包运行时** —— 删 `executor/vendor/`，退回"用户得自己装 Python + MaaFw"
+3. 裁 `maa/bin/DirectML.dll`（-17.7 MiB）—— OCR 退回 CPU 推理，**不建议**
+4. 砍 numpy（-53 MiB）—— **做不到**，`maa` 有 7 个模块在模块级 `import numpy`
 
 ---
 
@@ -291,10 +319,19 @@ python scripts/sync_maaend_assets.py --report          # 只看当前带了什�
 
 ```bash
 cd E:/n.e.k.o_plugin_maaend_bridge
-uv run --project E:/NEKOdm/N.E.K.O pytest tests -q     # 161 passed
-uv run --project E:/NEKOdm/N.E.K.O ruff check .        # executor/ 有意排除
+uv run --project E:/NEKOdm/N.E.K.O pytest tests -q     # 203 passed
+uv run --project E:/NEKOdm/N.E.K.O ruff check .        # executor/ 与 vendor/ 有意排除
 python scripts/check_i18n.py                           # 语言包键集合与占位符一致性
+python scripts/sync_maaend_assets.py --report          # 资源层带了什么
+python scripts/vendor_python_runtime.py --check        # 自带运行时是否完整
 ```
+
+后两个脚本同时也是**重建**入口（`sync_maaend_assets.py <发行版路径>` /
+`vendor_python_runtime.py --python-zip <zip> --site-packages <路径>`）。改完二者
+都要用**自带的解释器**跑一遍 `executor/vendor/README.md` 里那三条验收——
+注意 `smoke_resource` 不碰截图那条路，所以它单独通过不代表运行时是完整的
+（Pillow 就是这么漏掉过一次；现在 `tests/test_launcher.py` 会从源码推导出
+执行器真正 import 的三方包并逐个核对）。
 
 还有一组**对真面板**的契约测试，默认跳过（`MAAEND_LIVE=1` 才跑）。
 它只读不写——**绝不**碰 `/api/run` 与 `/api/prepare`，那两条会初始化 MaaFramework
