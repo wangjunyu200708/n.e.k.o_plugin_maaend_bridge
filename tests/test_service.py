@@ -284,6 +284,112 @@ async def test_read_token_picks_up_a_rotation(tmp_path: Path):
 
 
 # ---------------------------------------------------------------------------
+# Where the token is: the executor ships with the plugin now, so its own
+# directory is the answer. (This used to guess at dev-machine paths, which on a
+# real install meant the plugin never found the token the panel had just
+# written next to itself.)
+# ---------------------------------------------------------------------------
+
+
+def _service_with_plugin_dir(tmp_path: Path) -> MaaendService:
+    service = MaaendService()
+    service.set_plugin_dir(tmp_path)
+    service.configure({})
+    return service
+
+
+def test_token_path_defaults_to_the_bundled_executor(tmp_path: Path):
+    executor = tmp_path / "executor"
+    executor.mkdir()
+    write_token(executor / "panel_token.txt", "tok")
+    assert _service_with_plugin_dir(tmp_path).resolve_token_path() == executor / "panel_token.txt"
+
+
+def test_token_path_still_answers_before_the_panel_has_ever_run(tmp_path: Path, monkeypatch):
+    """A path that does not exist is a different state from "unknown location".
+
+    Returning the path keeps the message at "the panel has not started yet";
+    returning None would claim the plugin was never told where the panel lives,
+    which is a settings problem the user cannot act on.
+
+    ``default_panel_dir`` is stubbed out so this describes a machine with no
+    external panel — on a developer's box it may well find a real one, and then
+    preferring *that* is correct, not a bug.
+    """
+    monkeypatch.setattr("maaend_bridge_plugin.service.default_panel_dir", lambda: "")
+    (tmp_path / "executor").mkdir()
+    path = _service_with_plugin_dir(tmp_path).resolve_token_path()
+    assert path == tmp_path / "executor" / "panel_token.txt"
+
+
+def test_token_path_falls_back_to_an_external_panel(tmp_path: Path, monkeypatch):
+    """Somebody still running an executor outside the plugin keeps working."""
+    (tmp_path / "executor").mkdir()          # bundled one has never run
+    external = tmp_path / "external"
+    external.mkdir()
+    write_token(external / "panel_token.txt", "external")
+    monkeypatch.setattr(
+        "maaend_bridge_plugin.service.default_panel_dir", lambda: str(external)
+    )
+    assert _service_with_plugin_dir(tmp_path).resolve_token_path() == (
+        external / "panel_token.txt"
+    )
+
+
+def test_explicit_settings_still_win(tmp_path: Path):
+    explicit = tmp_path / "mine.txt"
+    service = _service_with_plugin_dir(tmp_path)
+    service.configure({"token_file": str(explicit)})
+    assert service.resolve_token_path() == explicit
+    service.configure({"token_file": "", "panel_dir": str(tmp_path / "somewhere")})
+    assert service.resolve_token_path() == tmp_path / "somewhere" / "panel_token.txt"
+
+
+# ---------------------------------------------------------------------------
+# The budget: the hosted panel's UI context runs under the host's watchdog
+# ---------------------------------------------------------------------------
+
+
+def test_the_connect_timeout_is_short_enough_for_a_ui_context_budget():
+    """Loopback: a connect completes instantly or is refused instantly.
+
+    A generous connect timeout buys nothing and costs a watchdog failure every
+    time the panel is down — which is exactly when the panel is being opened to
+    find out that it is down.
+    """
+    from maaend_bridge_plugin.client import MaaendClient
+
+    assert MaaendClient("http://127.0.0.1:12702").connect_timeout <= 2.0
+
+
+async def test_get_status_does_not_probe_again_after_an_unreachable(tmp_path: Path):
+    """Two doomed connections in a row is what blew the host's watchdog.
+
+    The observed symptom on a real machine was the host reporting "Failed to
+    query plugin UI action context" instead of the panel showing "not
+    connected" — the call was cancelled mid-flight, so nothing was rendered.
+    """
+    service, client, _cues, _logs = make_service(tmp_path)
+    client.status_queue = [MaaendUnreachable("down")]
+    snapshot = await service.get_status()
+    assert snapshot["connected"] is False
+    assert ("ping",) not in client.calls, (
+        "an unreachable panel was probed twice; the answer was already known"
+    )
+
+
+async def test_get_status_still_probes_when_the_failure_was_something_else(tmp_path: Path):
+    """An auth failure leaves "is the panel up" genuinely open, so ask."""
+    service, client, _cues, _logs = make_service(tmp_path)
+    client.ping_result = True
+    client.status_queue = [MaaendAuthError("bad token")]
+    snapshot = await service.get_status()
+    assert snapshot["connected"] is True
+    assert snapshot["token_ok"] is False
+    assert ("ping",) in client.calls
+
+
+# ---------------------------------------------------------------------------
 # Configuration clamping
 # ---------------------------------------------------------------------------
 

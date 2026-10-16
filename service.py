@@ -412,14 +412,31 @@ class MaaendService:
         panel lives" (a settings problem), the second is "the panel has not
         started yet" (a routine problem). Only the first is worth a hint in
         the message the user sees.
+
+        ``panel_server.py`` writes its token **next to itself**, and the
+        executor ships inside the plugin — so the plugin's own
+        ``executor/panel_token.txt`` is the right answer now, and it is checked
+        first. The legacy guesses in :func:`default_panel_dir` only apply to
+        somebody still running an executor *outside* the plugin (the old
+        ``.workbuddy`` workflow), which is why they stay below.
         """
         explicit = self._token_file.strip()
         if explicit:
             return Path(explicit)
-        panel_dir = self._panel_dir.strip() or default_panel_dir()
-        if not panel_dir:
-            return None
-        return Path(panel_dir) / TOKEN_FILENAME
+        if self._panel_dir.strip():
+            return Path(self._panel_dir.strip()) / TOKEN_FILENAME
+
+        executor = self.executor_dir()
+        bundled = (executor / TOKEN_FILENAME) if executor is not None else None
+        if bundled is not None and bundled.is_file():
+            return bundled
+        legacy = default_panel_dir()
+        if legacy:
+            return Path(legacy) / TOKEN_FILENAME
+        # Nothing exists yet. Answer with where the executor *will* write it, so
+        # the resulting message is "the panel has not started" rather than
+        # "this plugin was never told where the panel lives".
+        return bundled
 
     async def _read_token(self) -> str:
         """Read the panel token from disk. Returns ``""`` when absent.
@@ -451,7 +468,10 @@ class MaaendService:
             self._client = MaaendClient(
                 self._base_url,
                 http_timeout=self._http_timeout,
-                connect_timeout=min(3.0, self._http_timeout),
+                # Loopback only: a connect either completes in microseconds or is
+                # refused immediately. A long connect timeout buys nothing and
+                # costs a UI-context watchdog failure whenever the panel is down.
+                connect_timeout=min(1.5, self._http_timeout),
             )
         if not self._client.is_open:
             await self._client.open()
@@ -516,6 +536,16 @@ class MaaendService:
         self._catalogue = tasks
         self._catalogue_at = now
         return tasks
+
+    def cached_catalogue(self) -> List[Dict[str, Any]]:
+        """The last fetched catalogue, or ``[]``. **Never touches the network.**
+
+        For callers on a latency budget. The hosted panel's UI context runs
+        under the host's watchdog (``plugin/core/host.py``, ~5 s), so it has to
+        answer from memory: fetching is what ``maaend_list_tasks`` is for, and
+        the panel calls that itself.
+        """
+        return list(self._catalogue)
 
     async def task_options(self, task_name: str) -> Dict[str, Any]:
         client = await self._ensure_client()
@@ -637,7 +667,18 @@ class MaaendService:
         except MaaendError as exc:
             snapshot["token_ok"] = not isinstance(exc, (MaaendAuthError, MaaendUnreachable))
             snapshot["last_error"] = exc.code
-            snapshot["connected"] = await self.probe_status()
+            # **Do not probe again after an unreachable.** The answer is already
+            # known, and a second doomed connection doubles how long this call
+            # takes — which matters because the hosted panel's UI context runs
+            # under a watchdog (`plugin/core/host.py`, `_run_with_watchdog`, ~5 s).
+            # Two loopback connect timeouts in a row blow through it, and the
+            # host then reports "Failed to query plugin UI action context"
+            # instead of the panel simply showing "not connected". The ping is
+            # only informative when the failure was something *else* (auth,
+            # protocol), where whether the panel is up is still open.
+            snapshot["connected"] = (
+                False if isinstance(exc, MaaendUnreachable) else await self.probe_status()
+            )
             if include_executor:
                 snapshot["executor"] = await self.describe_executor()
             snapshot["summary"] = prompts.t(

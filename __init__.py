@@ -604,12 +604,17 @@ class MaaendBridgePlugin(NekoPluginBase):
         # for this context id the host refuses every action call from the
         # surface. Never raises — the panel has to be able to show "not
         # connected" as a state rather than an error.
+        #
+        # **This runs under the host's watchdog** (`plugin/core/host.py`,
+        # `_run_with_watchdog`, ~5 s). So it is kept to a single bounded network
+        # attempt and reads everything else from memory: the catalogue comes
+        # from the cache, not a fetch (the panel calls `maaend_list_tasks`
+        # itself), and `get_status` is called without `include_executor` because
+        # that one spawns a subprocess. Blowing the watchdog does not surface
+        # here — it surfaces as the host reporting "Failed to query plugin UI
+        # action context", which says nothing about the panel being down.
         status = await self._service.get_status()
-        tasks: list = []
-        try:
-            tasks = await self._service.catalogue()
-        except Exception:
-            tasks = []
+        tasks = self._service.cached_catalogue()
         return {
             "status": status,
             "tasks": [

@@ -343,14 +343,37 @@ async def test_list_tasks_entry_reports_a_failure_rather_than_an_empty_list(tmp_
 
 
 async def test_ui_context_carries_the_catalogue_for_the_panel(tmp_path):
+    """The shape the panel renders: name / label / description / group only."""
     plugin, _client, _cues = make_plugin(tmp_path)
+    await plugin._service.catalogue()          # the panel fetches; the context serves
     context = await plugin.maaend_ui_context()
     assert {item["name"] for item in context["tasks"]} == {
         "DailyRewards",
         "DailyTask",
         "CreditShoppingN2",
     }
+    assert set(context["tasks"][0]) == {"name", "label", "description", "group"}
     assert "status" in context
+    await plugin._service.close()
+
+
+async def test_the_ui_context_never_fetches_the_catalogue(tmp_path):
+    """It runs under the host's watchdog, so it must answer from memory.
+
+    On a real machine this call was cancelled mid-flight and the host reported
+    "Failed to query plugin UI action context" — the panel rendered nothing at
+    all, instead of showing "not connected". The three round trips it used to
+    make (status, re-probe, catalogue) each waited out a connect timeout with
+    no panel listening.
+    """
+    from maaend_bridge_plugin.client import MaaendUnreachable
+
+    plugin, client, _cues = make_plugin(tmp_path)
+    client.status_queue = [MaaendUnreachable("down")]
+    context = await plugin.maaend_ui_context()
+    assert context["status"]["connected"] is False
+    assert context["tasks"] == []
+    assert not any(call[0] == "tasks" for call in client.calls)
     await plugin._service.close()
 
 

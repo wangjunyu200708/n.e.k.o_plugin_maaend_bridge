@@ -173,7 +173,10 @@ class MaaendClient:
         base_url: str,
         *,
         http_timeout: float = 10.0,
-        connect_timeout: float = 3.0,
+        # The panel is on loopback: a connect either completes in microseconds
+        # or is refused immediately, so a long connect timeout only delays
+        # noticing that it is down.
+        connect_timeout: float = 1.5,
     ) -> None:
         self.base_url = normalise_base_url(base_url)
         self.http_timeout = max(0.5, float(http_timeout))
