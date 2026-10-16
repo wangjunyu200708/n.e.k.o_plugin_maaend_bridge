@@ -1,11 +1,22 @@
 # maaend_bridge — MaaEnd 终末地执行器桥接
 
+> ## ⚠️ 用途声明
+>
+> **这不是 MaaEnd 的官方项目**，与 MaaEnd 官方无隶属或背书关系。
+> 它的用途是**一次技术验证**：把大模型驱动的角色应用（N.E.K.O.）接到一个已有的
+> 游戏自动化工具上，**以 MaaEnd 为参考实现**。MaaEnd 的资源层在这里是**原样复用**的
+> 输入。请勿把它当作 MaaEnd 的替代品或正式客户端。
+> 想用 MaaEnd 请去上游：<https://github.com/MaaEnd/MaaEnd>
+>
+> 许可是**混合**的（`executor/maaend/` 与 `executor/override/` 是 **AGPL-3.0**，
+> 其余为 MIT）。逐子树的划分、AGPL 义务的履行情况，见 **[NOTICE.md](NOTICE.md)**。
+
 把 **MaaEnd 自建执行器**（用 Python + MaaFramework 直接驱动《明日方舟：终末地》，
 绕开 MXU 宿主）整个带进 N.E.K.O.：猫娘能指挥它跑日常、刷信用点、收菜，
 并在任务进行中实时转播"跑到哪一步了"。
 
-**执行器代码与资源层都随插件分发**（`executor/`，2265 个文件 / 293 MiB），
-装完插件不用再去别处找 MaaEnd。只差一个前置条件，见下节。
+**执行器、资源层与 Python 运行时都随插件分发**（`executor/`，前置条件为零），
+装完就能跑，不用再去别处找 MaaEnd、也不用先装 Python。
 
 这是 `mcbot_bridge`（接本地 mcbot，REST + SSE）与 `game_agent_minecraft`（接 mc-agent，裸 WebSocket）
 的同形兄弟，接的是第三条线，也是第三种传输。
