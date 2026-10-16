@@ -7,34 +7,39 @@
 
 ## 1. 代码在哪
 
-**全部实现在 `.workbuddy/` 目录下**（本仓库其余部分是 MaaEnd 官方资源层，未改动）。
+全部在**本插件的 `executor/` 目录**下。执行器、它依赖的 Python 运行时、以及它驱动的
+游戏资源层都随插件分发（前置条件为零），下面都是相对 `executor/` 的路径。
 
 ```
-.workbuddy/
-├── panel_server.py          ★ 控制面板后端（HTTP API + SSE + 长驻提权进程）766 行
-├── runner.py                ★ 执行器核心（资源/控制器/agent/任务）437 行
-├── run_elevated.py          ★ 提权启动包装（UAC 自提升）104 行
-├── start_panel.bat            面板启动器（自动请求管理员权限）38 行
+executor/
+├── panel_server.py          ★ 控制面板后端（HTTP API + SSE + 长驻提权进程）
+├── runner.py                ★ 执行器核心（资源/控制器/agent/任务）
+├── packmeta.py                读资源层的自描述（窗口/控制器/项目身份）
+├── run_elevated.py            提权包装（命令行跑单个任务用）
+├── start_panel.bat            面板启动器（自动请求管理员权限）
 │
 ├── override/                  option → pipeline_override 编译器
-│   ├── override_gen.py        Python 外壳（调 Node + 深合并）198 行
-│   ├── cli.ts                 Node 入口（stdin JSON → stdout JSON）52 行
-│   ├── build_interface.py     JSONC 解析 + 展开 68 条 import 107 行
-│   ├── pipelineOverride.ts  ★ 从 MXU 前端原样复制 692 行
-│   ├── specialTasks.ts        从 MXU 前端原样复制 705 行
-│   ├── storesHelpers.ts       从 MXU 前端原样复制 253 行
-│   ├── optionHelpers.ts       从 MXU 前端原样复制 25 行
-│   ├── logger.ts              唯一 stub（替换掉依赖 loglevel/Tauri 的原版）
-│   ├── golden_test.py         黄金测试（检测上游漂移）136 行
-│   ├── golden/*.json          5 份冻结快照
-│   ├── gen_source.py          重新生成来源锁定信息
-│   └── SOURCE.txt             复用了哪些 MXU 文件、版本与 sha256
+│   ├── pipeline_override.py  ★ 运行时实现（从 MXU 的 TypeScript 移植）
+│   ├── pretask_builder.py    ★ pretask 启动参数
+│   ├── data.json             ★ 从 MXU 导出的数据表
+│   ├── override_gen.py         对外 API 外壳
+│   ├── build_interface.py      JSONC 解析 + 展开 68 条 import
+│   ├── golden_test.py          黄金测试：--check 跑 Python 对快照
+│   ├── test_pipeline_override.py  合成 interface 钉语义边界
+│   ├── golden/*.json           11 份冻结快照（由 TS 版生成）
+│   └── *.ts / cli.ts           MXU 原样复制的 TS，**不参与运行时**（维护期当对照组）
+│
+├── vendor/                  ★ 自带的 Python 运行时（约 149 MiB）
+│   ├── python/                 embeddable CPython 3.11.9
+│   ├── site-packages/          maa / numpy / strenum / PIL
+│   └── licenses/
+│
+├── maaend/                  ★ 游戏资源层（AGPL-3.0，MaaEnd 原样、未修改）
 │
 ├── API_CONTRACT.md          ★ 前端实现契约（端点/字段/选项值格式/配色）
-├── PROJECT_STATUS_EN.md       英文现状报告（专家评估用）
 │
 │   ── 测试脚本 ──
-├── api_smoke.py               API 冒烟（16 项断言，不碰 MaaFw）
+├── api_smoke.py               API 冒烟（不碰 MaaFw）
 ├── test_prepare.py            真机验证（初始化/分辨率/截图）
 ├── smoke_resource.py          资源加载冒烟
 ├── smoke_override.py          编译器 ↔ MaaFw 端到端
@@ -42,20 +47,19 @@
 ├── probe_agent.py             agent 链路探测
 ├── fix_bat.py                 把 .bat 规范成 cmd 能解析的形式（ASCII + CRLF）
 │
-├── run_logs/                  运行时日志（maafw.log / go-service.stdout.log / vision/）
+├── run_logs/                  运行时日志（运行期生成）
 └── panel_token.txt            启动时生成的随机 token
-```
 
 ★ = 核心实现文件
 
-### 外部依赖（不在本仓库）
+### 外部依赖
 
-| 路径 | 内容 |
-|---|---|
-| `E:/MaaEnddm/MaaEnd-win-x86_64-v2.32.0` | 发行版：`resource/`（5809 节点）、`agent/`（go-service + cpp-algo）、`interface.json`、`locales/` |
-| `E:/MaaEnddm/MXU-2.7.1/MXU-2.7.1` | MXU 前端源码，`override/*.ts` 从这里复制 |
-| `E:/MaaEnddm/MaaEnd-2/assets` | 资源层源仓库（interface.json / tasks / pipeline / 模型） |
-| `F:/插件备份/endfield/endfield/maa_runner.py` | N.E.K.O 的 endfield 插件里另一套 Python 直连实现，可作参考 |
+**没有。** 资源层与 Python 运行时就是上面那两个带 ★ 的目录，分发时不需要外部发行版、
+也不需要用户装 Python。
+
+历史上它们确实是外部依赖（MaaEnd 发行版 + MXU 源码 + 资源层源仓库），那几处现在只剩
+**开发期的维护用途**：`override/*.ts` 是移植的来源与对照基准，MXU 升级时用它重新导出
+`data.json`；来源与每个文件的 sha256 记在 `override/SOURCE.txt`。
 
 ---
 
@@ -90,7 +94,7 @@
 ### 方式 A：控制面板（推荐）
 
 ```bat
-双击 .workbuddy\start_panel.bat     :: 自动请求管理员权限
+双击 executor\start_panel.bat     :: 自动请求管理员权限
 ```
 
 启动后浏览器访问 `http://127.0.0.1:12702`（token 打印在控制台）。
@@ -100,7 +104,7 @@
 
 ```bat
 C:\Users\25672\AppData\Local\Python\pythoncore-3.11-64\python.exe ^
-    .workbuddy\run_elevated.py CreditShoppingN2 300
+    executor\run_elevated.py CreditShoppingN2 300
 ```
 
 ```
@@ -174,16 +178,16 @@ MXU 前端产出 `[{...},{...}]`；Rust 绑定内部有合并层，**Python 绑�
 
 ```bat
 :: 编译器漂移检测（不需要游戏）
-python .workbuddy\override\golden_test.py --check
+python executor\override\golden_test.py --check
 
 :: API 冒烟（不需要游戏，16 项断言）
-python .workbuddy\api_smoke.py --port 12702
+python executor\api_smoke.py --port 12702
 
 :: 真机验证（需要游戏在运行）
-python .workbuddy\test_prepare.py --port 12702
+python executor\test_prepare.py --port 12702
 
 :: 资源加载冒烟
-python .workbuddy\smoke_resource.py
+python executor\smoke_resource.py
 ```
 
 已实测通过的任务：`DailyRewards`（22+ 节点）、`CreditShoppingN2`（57 节点 override，67 秒）。
@@ -205,7 +209,10 @@ python .workbuddy\smoke_resource.py
 
 | 项 | 值 |
 |---|---|
-| Python | 3.11.9（`AppData\Local\Python\pythoncore-3.11-64`） |
-| MaaFw | 5.14.2（pip wheel，自带全部原生 DLL） |
-| Node | 24.x（仅用于跑 override 编译器，需原生支持 TypeScript） |
-| 端口 | 12702（仅 127.0.0.1） |
+| Python | **自带**：`vendor/python/python.exe`（embeddable CPython 3.11.9；`python311._pth` 把 `vendor/site-packages` 列进 `sys.path`） |
+| MaaFw | **自带**：`vendor/site-packages/maa`（5.14.2，纯 `.py` + 17 个原生 DLL，无 `.pyd`） |
+| numpy / Pillow | **自带**。`maa` 在模块级 `import numpy`，所以它不是可选项；截图那条路用 PIL |
+| Node | **运行时不需要**。override 编译器已移植为纯 Python；Node 只在维护期用到（重新导出 `data.json`、`--compare/--update` 拿 TS 当对照组） |
+| 端口 | 12702（只监听 127.0.0.1） |
+
+自带运行时的组成、来源与许可见 `vendor/README.md`。

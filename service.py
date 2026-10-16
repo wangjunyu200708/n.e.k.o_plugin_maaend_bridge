@@ -66,7 +66,6 @@ DEFAULT_BASE_URL = "http://127.0.0.1:12702"
 _PIL_ERROR: Optional[str] = None
 _PIL_CHECKED = False
 TOKEN_FILENAME = "panel_token.txt"
-PANEL_DIR_NAME = ".workbuddy"
 
 # The panel reports ``idle`` (never initialised), ``ready`` and ``busy``.
 STATE_IDLE = "idle"
@@ -101,29 +100,21 @@ WAIT_BUDGET_GRACE_S = 120.0
 
 
 def default_panel_dir() -> str:
-    """The panel's ``.workbuddy`` directory, to the extent it can be guessed.
+    """An executor directory named by the environment, if any.
 
-    There is no registry entry for this — the executor is a working copy of
-    the MaaEnd resource repository, and the path differs per machine. The
-    guesses below cover the layouts seen in practice; ``panel_dir`` in the
-    settings is the reliable answer and the hint that names it is worth more
-    than any of these.
+    This used to guess at the paths a MaaEnd working copy might live under
+    (``…/.workbuddy``). That guessing is gone: the executor ships inside the
+    plugin and writes its token next to itself, which
+    :meth:`MaaendService.resolve_token_path` prefers before ever calling this.
+
+    Worth remembering what guessing got wrong: on the machine this was
+    developed on, one of those paths really did exist, so the plugin silently
+    picked up *another* panel's token and it only surfaced as an auth failure.
+    A path that cannot be derived should be configured, not guessed —
+    ``MAAEND_PANEL_DIR`` or the ``panel_dir`` setting, for somebody running an
+    executor outside the plugin.
     """
-    env = (os.environ.get("MAAEND_PANEL_DIR") or "").strip()
-    if env:
-        return env
-    candidates = [
-        Path("E:/MaaEnddm/MaaEnd-2/.workbuddy"),
-        Path("D:/MaaEnddm/MaaEnd-2/.workbuddy"),
-        Path.home() / "MaaEnd-2" / ".workbuddy",
-    ]
-    for candidate in candidates:
-        try:
-            if (candidate / TOKEN_FILENAME).is_file():
-                return str(candidate)
-        except OSError:
-            continue
-    return ""
+    return (os.environ.get("MAAEND_PANEL_DIR") or "").strip()
 
 
 def _as_str(value: Any, default: str = "") -> str:
@@ -415,10 +406,12 @@ class MaaendService:
 
         ``panel_server.py`` writes its token **next to itself**, and the
         executor ships inside the plugin — so the plugin's own
-        ``executor/panel_token.txt`` is the right answer now, and it is checked
-        first. The legacy guesses in :func:`default_panel_dir` only apply to
-        somebody still running an executor *outside* the plugin (the old
-        ``.workbuddy`` workflow), which is why they stay below.
+        ``executor/panel_token.txt`` is the right answer, and it is checked
+        first. The fallback below is for somebody running an executor
+        *outside* the plugin, and they have to say so explicitly
+        (``MAAEND_PANEL_DIR`` or the ``panel_dir`` setting). Guessing at
+        plausible paths was removed: a path that merely *exists* is how a
+        different panel's token gets picked up, silently.
         """
         explicit = self._token_file.strip()
         if explicit:

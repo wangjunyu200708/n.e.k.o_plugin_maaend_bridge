@@ -53,8 +53,10 @@ permissions = ["state:read", "action:call"]
 # MaaEnd 控制面板后端（panel_server.py）。只监听 127.0.0.1。
 base_url = "http://127.0.0.1:12702"
 
-# 面板仓库的 .workbuddy 目录，用来定位 panel_token.txt。
-# 留空则用内置的平台默认（见 service.default_panel_dir）。
+# 执行器目录，用来定位 panel_token.txt。
+# **留空即正确**：执行器随插件分发，令牌写在它自己旁边
+# （<插件>/executor/panel_token.txt），插件默认就去那儿找。
+# 只有在插件之外另外跑一份执行器时才需要填。
 panel_dir = ""
 
 # 显式指定令牌文件路径；留空则用 <panel_dir>/panel_token.txt。

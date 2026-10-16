@@ -32,14 +32,17 @@ PROMPTS: Dict[str, Dict[str, str]] = {
     # Transport / precondition failures (tool results)
     # ------------------------------------------------------------------
     "ERR_UNREACHABLE": {
-        "zh": "现在连不上终末地执行器——控制面板后端没在运行，或者刚断开。要让{MASTER_NAME}先双击 .workbuddy\\start_panel.bat 把面板起起来。",
-        "zh-TW": "現在連不上終末地執行器——控制面板後端沒在執行，或者剛斷開。要請{MASTER_NAME}先雙擊 .workbuddy\\start_panel.bat 把面板啟動起來。",
-        "en": "I can't reach the Endfield executor right now — its control panel backend is not running, or it just dropped. Please start the panel first (double-click .workbuddy\\start_panel.bat).",
-        "ja": "今、エンドフィールドの実行器につながりません——コントロールパネルのバックエンドが起動していないか、切れたところです。先にパネルを起動してください（.workbuddy\\start_panel.bat をダブルクリック）。",
-        "ko": "지금 엔드필드 실행기에 연결할 수 없어요 — 제어 패널 백엔드가 실행 중이 아니거나 방금 끊겼어요. 먼저 패널을 실행해 주세요(.workbuddy\\start_panel.bat 더블클릭).",
-        "ru": "Сейчас не могу связаться с исполнителем Endfield — серверная часть панели управления не запущена или только что отключилась. Сначала запустите панель (.workbuddy\\start_panel.bat).",
-        "es": "Ahora mismo no puedo contactar con el ejecutor de Endfield: el servidor del panel de control no está en marcha o se acaba de desconectar. Inicia primero el panel (.workbuddy\\start_panel.bat).",
-        "pt": "Agora não consigo falar com o executor de Endfield — o backend do painel de controle não está em execução ou acabou de cair. Inicie o painel primeiro (.workbuddy\\start_panel.bat).",
+        # 不要再指向某个文件路径：执行器随插件分发，路径随安装位置变，而且打包后
+        # 用户看不到插件内部。面板上的那个按钮是唯一稳定的说法（按钮文案与
+        # i18n 的 ui.launchExecutor 逐语言对齐）。
+        "zh": "现在连不上终末地执行器——控制面板后端没在运行，或者刚断开。在插件面板上点「启动执行器」把它拉起来。",
+        "zh-TW": "現在連不上終末地執行器——控制面板後端沒在執行，或者剛斷開。在外掛面板上點「啟動執行器」把它拉起來。",
+        "en": "I can't reach the Endfield executor right now — its control panel backend is not running, or it just dropped. Press \"Start executor\" on the plugin panel to bring it up.",
+        "ja": "今、エンドフィールドの実行器につながりません——コントロールパネルのバックエンドが起動していないか、切れたところです。プラグインのパネルで「実行器を起動」を押してください。",
+        "ko": "지금 엔드필드 실행기에 연결할 수 없어요 — 제어 패널 백엔드가 실행 중이 아니거나 방금 끊겼어요. 플러그인 패널에서 「실행기 시작」을 눌러 주세요.",
+        "ru": "Сейчас не могу связаться с исполнителем Endfield — серверная часть панели управления не запущена или только что отключилась. Нажмите «Запустить исполнитель» на панели плагина.",
+        "es": "Ahora mismo no puedo contactar con el ejecutor de Endfield: el servidor del panel de control no está en marcha o se acaba de desconectar. Pulsa «Iniciar ejecutor» en el panel del plugin.",
+        "pt": "Agora não consigo falar com o executor de Endfield — o backend do painel de controle não está em execução ou acabou de cair. Toque em «Iniciar executor» no painel do plugin.",
     },
     "ERR_NO_TOKEN": {
         "zh": "控制面板在运行，但读不到它的令牌文件 panel_token.txt。面板可能刚启动还没写完，或者 panel_dir 配置指错了目录。",

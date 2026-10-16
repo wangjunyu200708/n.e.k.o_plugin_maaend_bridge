@@ -1,7 +1,7 @@
 """Transport for the MaaEnd self-built executor's control panel.
 
 The executor lives outside N.E.K.O. — it is a separate Python process
-(``.workbuddy/panel_server.py`` in the MaaEnd resource repository) that owns a
+(``executor/panel_server.py``, shipped inside this plugin) that owns a
 MaaFramework 5.x runtime and drives *Arknights: Endfield* through Seize
 (synthetic keyboard/mouse input). It exposes a **loopback-only** HTTP API:
 
@@ -22,8 +22,9 @@ MaaFramework 5.x runtime and drives *Arknights: Endfield* through Seize
 Every ``/api/*`` endpoint except ``/api/ping`` needs ``X-Auth-Token``, and the
 server additionally pins the ``Host`` (and ``Origin``, when present) header to
 ``127.0.0.1``/``localhost``. The token is regenerated with
-``secrets.token_urlsafe(32)`` **on every backend start** and written to
-``.workbuddy/panel_token.txt``. That has two consequences this plugin is built
+``secrets.token_urlsafe(32)`` **on every backend start** and written next to
+``panel_server.py`` — i.e. into the plugin's own ``executor/`` directory. That
+has two consequences this plugin is built
 around:
 
 * A request may need a token that does not exist yet, and any cached token can

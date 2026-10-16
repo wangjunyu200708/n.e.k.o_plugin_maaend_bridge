@@ -18,9 +18,11 @@
 # 127.0.0.1/localhost 上——所以这里别填主机名或局域网 IP，会撞 403。
 base_url = "http://127.0.0.1:12702"
 
-# 面板仓库的 .workbuddy 目录，用来定位 panel_token.txt。
-# 留空则会依次猜 MAAEND_PANEL_DIR 环境变量与几个常见安装路径；
-# 猜不中时插件会明确说"读不到令牌文件"，此时把这一项填上即可。
+# 执行器目录，用来定位 panel_token.txt。
+# **留空即正确**：执行器随插件分发，令牌写在它自己旁边
+# （<插件>/executor/panel_token.txt），插件默认就去那儿找。
+# 只有在插件之外另外跑一份执行器时才需要填，那时也可以用
+# MAAEND_PANEL_DIR 环境变量。
 panel_dir = ""
 
 # 显式指定令牌文件；留空用 <panel_dir>/panel_token.txt。

@@ -20,7 +20,7 @@
 | Origin 头 | 若存在，必须是 `127.0.0.1` / `localhost` | `403 {"error":"Origin 不被允许"}` |
 | Token | `X-Auth-Token` 头，或 URL `?token=` | `401 {"error":"缺少或错误的 token"}` |
 
-**Token 获取方式**：后端启动时随机生成，写入 `.workbuddy/panel_token.txt`，
+**Token 获取方式**：后端启动时随机生成，写入 `executor/panel_token.txt`，
 同时打印在控制台。若后端托管了前端页面（`GET /`），token 会以
 `window.__PANEL_TOKEN__` 注入 HTML —— 自己的页面用这个即可。
 
