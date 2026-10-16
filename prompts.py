@@ -447,6 +447,22 @@ PROMPTS: Dict[str, Dict[str, str]] = {
         "es": "Se han solicitado permisos de administrador. Si sigue apareciendo una ventana de autorización, haz clic en *sí*; si no, el ejecutor no arrancará.",
         "pt": "Foram solicitadas permissões de administrador. Se a janela de autorização ainda estiver na tela, clique em *sim* — sem isso o executor não sobe.",
     },
+    # 资源层（游戏资产）缺失。文案刻意只提「资源层」不提具体游戏：资源层是可以
+    # 整个换掉的（合规上也可能需要随时撤掉），文案跟着游戏名写死就等于换一层要
+    # 改八种语言。
+    #
+    # 只在派活路径上（工具结果）用这一条。启动路径**不**检查资源层——见
+    # MaaendService.launch_panel 里的说明。
+    "ERR_NO_ASSET_PACK": {
+        "zh": "执行器现在没有可用的资源层，跑不了任务：{problems}",
+        "zh-TW": "執行器現在沒有可用的資源層，跑不了任務：{problems}",
+        "en": "The executor has no asset layer installed, so it cannot run anything: {problems}",
+        "ja": "実行器に使えるアセット層が入っていないため、タスクを実行できません：{problems}",
+        "ko": "실행기에 쓸 수 있는 리소스 레이어가 없어서 작업을 실행할 수 없어요: {problems}",
+        "ru": "У исполнителя нет слоя ресурсов, поэтому запускать нечего: {problems}",
+        "es": "El ejecutor no tiene ninguna capa de recursos instalada, así que no puede ejecutar nada: {problems}",
+        "pt": "O executor não tem nenhuma camada de recursos instalada, então não consegue rodar nada: {problems}",
+    },
     "LABEL_IDLE_TASK": {
         "zh": "空闲",
         "zh-TW": "空閒",

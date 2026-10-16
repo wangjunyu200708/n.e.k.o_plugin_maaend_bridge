@@ -62,5 +62,7 @@
   "ui.followOff": "Слежение на паузе",
   "ui.clearLogs": "Очистить",
   "ui.noLogs": "Записей пока нет",
-  "ui.errorPrefix": "Ошибка: "
+  "ui.errorPrefix": "Ошибка: ",
+  "ui.assetPack": "Слой ресурсов",
+  "ui.noAssetPack": "Слой ресурсов игры не установлен, поэтому исполнитель не может ничего запускать: {problems}"
 }

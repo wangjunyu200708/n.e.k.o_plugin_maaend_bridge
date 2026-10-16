@@ -264,6 +264,47 @@ def launch_elevated(
     return True, ""
 
 
+ASSET_PACK_DIRNAME = "maaend"
+ASSET_PACK_INTERFACE = "interface.json"
+
+
+def asset_pack_dir(executor: Path, *, configured: str = "") -> Path:
+    """Where the asset layer lives: the configured path, else the bundled one."""
+    text = (configured or "").strip()
+    return Path(text) if text else Path(executor) / ASSET_PACK_DIRNAME
+
+
+def asset_pack_problems(asset_dir: Path) -> List[str]:
+    """What is missing from the asset layer — filesystem only, no parsing.
+
+    This deliberately does **not** read ``interface.json``. What that file says
+    (project name, version, task groups, licence) is the executor's own answer
+    over ``/api/status``, and parsing it here would mean a second copy of the
+    JSONC reader living in the plugin — two implementations of a subtle parser
+    is how they drift.
+
+    What this answers instead is the one question the executor *cannot* answer
+    for itself: **is a layer even installed**, which matters exactly when the
+    executor is not running.
+
+    An empty list means "a layer is there and looks complete enough to start".
+    """
+    problems: List[str] = []
+    if not (asset_dir / ASSET_PACK_INTERFACE).is_file():
+        problems.append(f"缺少 {ASSET_PACK_INTERFACE}")
+        return problems  # nothing else about this directory is meaningful
+    if not (asset_dir / "resource").is_dir():
+        problems.append("缺少 resource/")
+    agents = asset_dir / "agent"
+    try:
+        has_agent = agents.is_dir() and next(agents.iterdir(), None) is not None
+    except OSError:
+        has_agent = False
+    if not has_agent:
+        problems.append("缺少 agent/ 或其中没有可执行文件")
+    return problems
+
+
 def manual_launcher_path(executor: Path) -> str:
     """The batch file a user can double-click, or ``""`` when absent.
 
@@ -302,8 +343,12 @@ def describe(executor: Path, *, configured: str = "") -> dict:
 
 
 __all__ = [
+    "ASSET_PACK_DIRNAME",
+    "ASSET_PACK_INTERFACE",
     "DEFAULT_PORT",
     "PYTHON_HINT_FILENAME",
+    "asset_pack_dir",
+    "asset_pack_problems",
     "candidate_interpreters",
     "describe",
     "executor_dir",

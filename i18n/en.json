@@ -62,5 +62,7 @@
   "ui.followOff": "Follow paused",
   "ui.clearLogs": "Clear",
   "ui.noLogs": "No log yet",
-  "ui.errorPrefix": "Error: "
+  "ui.errorPrefix": "Error: ",
+  "ui.assetPack": "Asset layer",
+  "ui.noAssetPack": "No game asset layer is installed, so the executor cannot run anything: {problems}"
 }

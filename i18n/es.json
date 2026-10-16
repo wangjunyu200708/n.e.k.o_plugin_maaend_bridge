@@ -62,5 +62,7 @@
   "ui.followOff": "Seguimiento en pausa",
   "ui.clearLogs": "Vaciar",
   "ui.noLogs": "Aún sin registro",
-  "ui.errorPrefix": "Error: "
+  "ui.errorPrefix": "Error: ",
+  "ui.assetPack": "Capa de recursos",
+  "ui.noAssetPack": "No hay ninguna capa de recursos del juego instalada, así que el ejecutor no puede ejecutar nada: {problems}"
 }

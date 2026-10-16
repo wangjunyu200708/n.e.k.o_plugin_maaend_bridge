@@ -62,5 +62,7 @@
   "ui.followOff": "追従を一時停止",
   "ui.clearLogs": "クリア",
   "ui.noLogs": "まだログなし",
-  "ui.errorPrefix": "エラー："
+  "ui.errorPrefix": "エラー：",
+  "ui.assetPack": "アセット層",
+  "ui.noAssetPack": "ゲームのアセット層が入っていないため、実行器はタスクを実行できません：{problems}"
 }

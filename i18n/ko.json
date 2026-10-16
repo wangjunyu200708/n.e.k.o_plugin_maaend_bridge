@@ -62,5 +62,7 @@
   "ui.followOff": "따라가기 일시정지",
   "ui.clearLogs": "비우기",
   "ui.noLogs": "아직 로그 없음",
-  "ui.errorPrefix": "오류: "
+  "ui.errorPrefix": "오류: ",
+  "ui.assetPack": "리소스 레이어",
+  "ui.noAssetPack": "게임 리소스 레이어가 설치되어 있지 않아 실행기가 작업을 실행할 수 없어요: {problems}"
 }

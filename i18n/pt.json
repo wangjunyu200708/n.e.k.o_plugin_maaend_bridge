@@ -62,5 +62,7 @@
   "ui.followOff": "Seguimento pausado",
   "ui.clearLogs": "Limpar",
   "ui.noLogs": "Ainda sem log",
-  "ui.errorPrefix": "Erro: "
+  "ui.errorPrefix": "Erro: ",
+  "ui.assetPack": "Camada de recursos",
+  "ui.noAssetPack": "Não há nenhuma camada de recursos do jogo instalada, então o executor não consegue rodar nada: {problems}"
 }

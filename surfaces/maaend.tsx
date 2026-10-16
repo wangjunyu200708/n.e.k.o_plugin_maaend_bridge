@@ -411,6 +411,23 @@ export default function MaaendPanel(props: PluginSurfaceProps) {
   const nodes = status.current_nodes || []
   const lastResult = asRecord(status.last_result)
 
+  // Which asset layer is installed. The executor reports its own (name, version,
+  // completeness) because it reads that file anyway; the plugin's local check
+  // (`executor.asset_pack_*`) answers the one question the executor cannot when
+  // it is not running — whether a layer is there at all.
+  const pack = asRecord(status.pack)
+  const localProblems: string[] = Array.isArray(executor.asset_pack_problems)
+    ? executor.asset_pack_problems.map(String)
+    : []
+  const packProblems: string[] = Array.isArray(pack.problems)
+    ? pack.problems.map(String)
+    : localProblems
+  const packMissing =
+    (status.pack ? pack.present === false : false) || executor.asset_pack_present === false
+  const packLabel = pack.present
+    ? [pack.name, pack.version].filter(Boolean).join(" ")
+    : t("ui.none")
+
   const statusItems = [
     { key: "state", label: t("ui.state"), value: String(status.summary || t("ui.unknown")) },
     {
@@ -439,6 +456,7 @@ export default function MaaendPanel(props: PluginSurfaceProps) {
             ? t("ui.yes")
             : t("ui.unknown"),
     },
+    { key: "pack", label: t("ui.assetPack"), value: packLabel },
     { key: "done", label: t("ui.lastResult"), value: describeLastResult(lastResult) },
     { key: "count", label: t("ui.taskCount"), value: String(status.task_count || 0) },
   ]
@@ -481,6 +499,11 @@ export default function MaaendPanel(props: PluginSurfaceProps) {
                   <Tip>{t("ui.manualLaunchHint", { path: String(executor.manual_launcher) })}</Tip>
                 ) : null}
               </Stack>
+            </Alert>
+          ) : null}
+          {packMissing ? (
+            <Alert tone="warning">
+              {t("ui.noAssetPack", { problems: packProblems.join(" / ") })}
             </Alert>
           ) : null}
           {status.elevated === false ? <Alert tone="warning">{t("ui.notAdmin")}</Alert> : null}

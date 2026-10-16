@@ -627,6 +627,7 @@ class MaaendService:
             "elapsed": 0.0,
             "last_result": None,
             "task_count": 0,
+            "pack": None,
             "panel_instance": self._panel_instance,
             "active_task": self._active.task_name if self._active else "",
             "last_error": self._last_error,
@@ -674,6 +675,10 @@ class MaaendService:
         last = body.get("last_result")
         snapshot["last_result"] = last if isinstance(last, dict) else None
         snapshot["task_count"] = _as_int(body.get("task_count"), 0)
+        # 执行器自报的资源层：名字 / 版本 / 许可 / 完整性。换掉资源层之后，
+        # 界面上和话术里的"哪个游戏"就跟着变，不需要改代码。
+        pack = body.get("pack")
+        snapshot["pack"] = pack if isinstance(pack, dict) else None
 
         if snapshot["state"] == STATE_BUSY:
             state_label = prompts.t(
@@ -705,6 +710,41 @@ class MaaendService:
     # ==================================================================
 
     async def describe_executor(self) -> Dict[str, Any]:
+        """``launcher.describe`` plus the asset layer's presence.
+
+        The asset fields are added here rather than inside ``launcher.describe``
+        so that function keeps its signature (and its callers), and because this
+        is the shape the panel actually reads.
+        """
+        info = await self._describe_executor_core()
+        directory = info.get("executor_dir") or ""
+        info.update(self._asset_pack_info(Path(directory) if directory else None))
+        return info
+
+    def _asset_pack_info(self, executor: Optional[Path]) -> Dict[str, Any]:
+        """Whether an asset layer is installed — filesystem only, never parsing.
+
+        The layer's *identity* (name, version, licence, whether it is complete)
+        is the executor's own answer in ``/api/status``. This exists for the one
+        case the executor cannot cover: it is not running, or has not been
+        started yet, and the panel still has to say whether the game assets are
+        there at all.
+        """
+        if executor is None:
+            return {
+                "asset_pack_dir": "",
+                "asset_pack_present": False,
+                "asset_pack_problems": ["插件目录未知，找不到资源层"],
+            }
+        pack_dir = launcher.asset_pack_dir(executor, configured=self._maaend_dir)
+        problems = launcher.asset_pack_problems(pack_dir)
+        return {
+            "asset_pack_dir": str(pack_dir),
+            "asset_pack_present": not problems,
+            "asset_pack_problems": problems,
+        }
+
+    async def _describe_executor_core(self) -> Dict[str, Any]:
         """``launcher.describe`` as a dict, for the panel's warning block.
 
         Runs a subprocess (``import maa``) so it costs a few hundred
@@ -775,6 +815,14 @@ class MaaendService:
             raise MaaendRejected(prompts.t("LAUNCH_NO_EXECUTOR_DIR", lang=self._lang))
         if not (executor / "panel_server.py").is_file():
             raise MaaendRejected(prompts.t("LAUNCH_NO_EXECUTOR_DIR", lang=self._lang))
+
+        # 这里**刻意不**检查资源层。本方法的职责是"把那个进程起起来"——没有资源层
+        # 它照样跑得起来，而且它会自己在 /api/status 里报 pack.present=false 与缺什么，
+        # 那是关于资源层的唯一权威说法。在这里提前拒绝，等于让插件重复执行器本来会
+        # 报的事（两份会漂移），还把"哪个游戏、缺什么"的答案挡在用户看不到的地方。
+        #
+        # "跑不成"的判断放在派活那一侧（_blocking_condition），那才是它作数的位置；
+        # 界面则在点启动之前就把缺失显示出来了（describe 的 asset_pack_* 字段）。
 
         interpreter, reason = await asyncio.to_thread(
             launcher.resolve_interpreter,
@@ -1198,6 +1246,18 @@ class MaaendService:
                 status = None
         if not isinstance(status, dict):
             return None
+
+        # 资源层缺失是最靠前的一道门：它决定了"执行器能操作什么"，其它检查都在
+        # 它之后才有意义。用执行器自报的答案（它读的是同一份 interface.json 的
+        # 自描述），而不是插件侧再解析一遍。
+        pack = status.get("pack")
+        if isinstance(pack, dict) and (pack.get("present") is False or pack.get("problems")):
+            problems = [str(p) for p in (pack.get("problems") or [])]
+            return self._envelope(
+                "ERR_NO_ASSET_PACK",
+                "NO_ASSET_PACK",
+                problems="；".join(problems) or str(pack.get("name") or "资源层不完整"),
+            )
 
         # Not elevated means Seize input never reaches the game — the panel
         # still reports the run as attempted, so the failure would surface

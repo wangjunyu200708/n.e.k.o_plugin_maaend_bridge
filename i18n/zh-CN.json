@@ -62,5 +62,7 @@
   "ui.followOff": "已暂停跟随",
   "ui.clearLogs": "清空",
   "ui.noLogs": "还没有日志",
-  "ui.errorPrefix": "出错："
+  "ui.errorPrefix": "出错：",
+  "ui.assetPack": "资源层",
+  "ui.noAssetPack": "没有安装游戏资源层，执行器跑不了任务：{problems}"
 }
