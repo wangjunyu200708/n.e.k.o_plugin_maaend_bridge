@@ -25,9 +25,22 @@ def test_manifest_exists_and_parses():
 def test_plugin_id_matches_the_source_directory():
     manifest = _manifest()
     assert manifest["plugin"]["id"] == PLUGIN_ID
-    # The repository is n.e.k.o_plugin_<id>; the plugin's own module is the
-    # repository root, so the id has to be the suffix of the directory.
-    assert ROOT.name == f"n.e.k.o_plugin_{PLUGIN_ID}"
+    # The plugin is loaded from whatever directory it sits in, and there are two
+    # legitimate names for it:
+    #
+    #   n.e.k.o_plugin_<id>   the standalone repository, which is how it is
+    #                         published and cloned
+    #   <id>                  mounted into the host as plugin/plugins/<id>,
+    #                         which is what `neko-plugin sync` does to a dev
+    #                         checkout and what the market's verify workflow
+    #                         does before it runs this suite
+    #
+    # The invariant worth keeping is that the id and the directory agree — a
+    # third name means the manifest and the layout have drifted apart.
+    assert ROOT.name in (PLUGIN_ID, f"n.e.k.o_plugin_{PLUGIN_ID}"), (
+        f"directory is named {ROOT.name!r}, which matches neither the plugin id "
+        f"({PLUGIN_ID}) nor the standalone repository convention"
+    )
 
 
 def test_entry_points_at_this_plugin_class():
