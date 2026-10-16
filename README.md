@@ -12,12 +12,21 @@
 
 ---
 
-## 两个前置条件
+## 一个前置条件
 
 | 需要 | 为什么 | 不满足时 |
 |---|---|---|
-| **一个装了 MaaFramework 的 Python 3.11** | 执行器用 pip 的 `maa` 绑定驱动 MaaFramework（那份 wheel 自带全部 17 个原生 DLL，所以 `maafw/` 那 61 MiB 不用带） | 插件在设置里给候选清单和失败原因；`<python> -c "import maa"` 是唯一可靠的验证 |
-| **Node 22.6+** | `override/` 的编译器直接复用 MXU 的 TypeScript 源码（`node cli.ts`，靠 Node 原生类型剥离，不需要编译步骤） | 只有派活时会用到；`golden_test.py` 会立刻报"找不到 node.exe" |
+| **一个装了 MaaFramework 的 Python 3.11** | 执行器用 pip 的 `maa` 绑定驱动 MaaFramework（那份 wheel 自带全部 17 个原生 DLL，所以发行版里 `maafw/` 那 61 MiB 不用带） | 插件在设置里给候选清单和失败原因；`<python> -c "import maa"` 是唯一可靠的验证 |
+
+**为什么不需要 Node**：`override/` 的编译器原本直接跑 MXU 前端的 TypeScript
+（`node cli.ts`），分发时要连带 87 MB 的 Node 运行时、用户还得装对版本。它现在是
+**纯 Python 移植**（`pipeline_override.py` + `pretask_builder.py` + `data.json`），
+运行时零外部进程。等价性由两层网兜住：`golden_test.py --check` 与 TS 版生成的
+**11 份冻结快照逐节点比对**，外加 `test_pipeline_override.py` 用合成 interface
+钉死 TS→Python 的语言语义陷阱（`??` vs `||`、`{}` 的 truthy、`$&` 不是 Python 语法）。
+Node 只剩在两处**维护期**用途：`dump_data.ts`（MXU 升级时重新导出数据表）与
+`golden_test.py --compare/--update`（拿 TS 当对照组）。升级流程见
+`executor/override/SOURCE.txt`。
 
 解释器会按 `NEKO_MAAEND_PYTHON` → 插件配置 → `executor/python_path.txt` →
 常见安装路径 → `py -3.11` → `python` 的顺序探测，**逐个跑 `import maa` 验证**。
@@ -179,13 +188,16 @@ executor/                     自建执行器（独立进程，不被 import）
 ├── run_elevated.py           命令行跑单个任务的提权包装
 ├── start_panel.bat           手动启动器（自动请求提权）
 ├── override/                 option → pipeline_override 编译器
-│   ├── pipelineOverride.ts     ← 从 MXU 前端原样复制（唯一知道"勾了某选项改哪个字段"的地方）
-│   ├── specialTasks.ts / storesHelpers.ts / optionHelpers.ts / logger.ts
-│   ├── cli.ts                  Node 入口（stdin JSON → stdout JSON）
-│   ├── override_gen.py         Python 外壳（调 Node + 深合并）
+│   ├── pipeline_override.py    ★ 运行时实现（从 MXU 的 TS 移植）
+│   ├── pretask_builder.py      ★ pretask 启动参数（同上）
+│   ├── data.json               ★ 从 MXU 导出的数据表（hotkey 映射等）
+│   ├── override_gen.py         对外 API 外壳（gen_override_object / merge_overrides）
 │   ├── build_interface.py      JSONC 解析 + 展开 68 条 import
-│   ├── golden_test.py          黄金测试（检测上游漂移）
-│   └── golden/*.json           5 份冻结快照
+│   ├── golden_test.py          黄金测试：--check 跑 Python 对快照，--compare/--update 用 Node 当对照组
+│   ├── test_pipeline_override.py  合成 interface 钉死语义边界（golden 够不到的部分）
+│   ├── golden/*.json           11 份冻结快照（由 TS 版生成，Python 版必须逐节点吻合）
+│   └── *.ts                    MXU 原样复制的 TS，**不参与运行时**：维护期当对照组与数据来源
+│                                （来源与 sha256 见 override/SOURCE.txt）
 ├── maaend/                   资源层（AGPL-3.0，见下）
 │   ├── interface.json        任务/选项清单（JSONC，运行时展开）
 │   ├── tasks/ (71)           46 个任务定义

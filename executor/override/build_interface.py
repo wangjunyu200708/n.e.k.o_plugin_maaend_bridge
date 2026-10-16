@@ -85,7 +85,7 @@ def build(assets_dir: Path) -> dict:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("assets", nargs="?", default=str(Path(__file__).resolve().parent.parent / "maaend"))
+    ap.add_argument("assets", nargs="?", default="E:/MaaEnddm/MaaEnd-2/assets")
     ap.add_argument("-o", "--out", default=None)
     args = ap.parse_args()
 

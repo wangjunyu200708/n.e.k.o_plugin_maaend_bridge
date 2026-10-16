@@ -1,17 +1,23 @@
 #!/usr/bin/env python3
-"""pipeline_override 生成器 —— 直接复用 MXU 前端的 TypeScript 实现，不做 Python 复刻。
+"""pipeline_override / pretask 参数生成器（对外 API 稳定，实现已换）。
 
-原理
+历史
 ----
-MXU 前端的 `utils/pipelineOverride.ts` 除了 logger 之外是纯逻辑（零 DOM / 零 React /
-零 Tauri），Node 24 原生支持 TypeScript 类型剥离，可以直接 `node cli.ts` 运行。
-本模块只是它的 Python 外壳：展开 interface.json 的 import → 喂给 Node → 拿回 JSON。
+1. 最初**直接跑 MXU 前端的 TypeScript**（``node cli.ts``），逻辑永远和官方一致，
+   但分发时要连带 87 MB 的 Node 运行时 —— 终端用户还得装对版本
+   （Node 22.6+ 才支持原生类型剥离）。
+2. 现在改为**纯 Python 移植**（``pipeline_override.py`` / ``pretask_builder.py``），
+   运行时零外部依赖。
+3. 等价性由两层网兜住：
+   - ``golden_test.py --check`` —— 与 TS 版生成的冻结快照逐节点比对
+   - ``test_pipeline_override.py`` —— 合成 interface 钉死语义边界
 
-好处：MXU 升级时只需重新拷贝那 4 个 .ts 文件，逻辑永远和官方前端一致。
+Node 现在只在两处用到，都不是运行时路径：``dump_data.ts``（从 MXU 源码导出
+数据表）和 ``golden_test.py --compare/--update``（生成/校验对照组）。
 
 用法
 ----
-    from override_gen import gen_override
+    from override_gen import gen_override_object
 
     # MaaFw 5.14.2 只接受 object，用 gen_override_object 直接拿合并后的格式
     ov = gen_override_object("AutoStockpile", {
@@ -32,30 +38,22 @@ from __future__ import annotations
 
 import argparse
 import json
-import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-DEFAULT_ASSETS = HERE.parent / "maaend"
+DEFAULT_ASSETS = Path("E:/MaaEnddm/MaaEnd-2/assets")
 DEFAULT_CONTROLLER = "Win32-Front"
 DEFAULT_RESOURCE = "官服"
 
-NODE_CANDIDATES = [
-    "C:/Program Files/nodejs/node.exe",
-    shutil.which("node") or "",
-]
+sys.path.insert(0, str(HERE))
+
+import pipeline_override as _po  # noqa: E402
+import pretask_builder as _pb  # noqa: E402
 
 _interface_cache: dict | None = None
 _interface_cache_path: str | None = None
-
-
-def _node() -> str:
-    for c in NODE_CANDIDATES:
-        if c and Path(c).exists():
-            return c
-    raise RuntimeError("找不到 node.exe（需要 Node 22.6+ / 24 以原生运行 TypeScript）")
 
 
 def load_interface(assets_dir: Path | str = DEFAULT_ASSETS, force: bool = False) -> dict:
@@ -85,25 +83,44 @@ def gen_override(
     global_option_values: dict | None = None,
     assets_dir: Path | str = DEFAULT_ASSETS,
 ) -> list[dict]:
-    """生成某任务的 pipeline_override（list[dict]，可直接传给 Tasker）。"""
-    payload = {
-        "taskName": task_name,
-        "optionValues": option_values or {},
-        "interface": load_interface(assets_dir),
-        "controllerName": controller_name,
-        "resourceName": resource_name,
-        "globalOptionValues": global_option_values or {},
-    }
-    proc = subprocess.run(
-        [_node(), str(HERE / "cli.ts")],
-        input=json.dumps(payload, ensure_ascii=False),
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
+    """生成某任务的 pipeline_override（list[dict]，与 MXU 前端输出同形）。"""
+    return _po.generate_task_pipeline_override(
+        task_name,
+        option_values or {},
+        project_interface=load_interface(assets_dir),
+        controller_name=controller_name,
+        resource_name=resource_name,
+        global_option_values=global_option_values or {},
     )
-    if proc.returncode != 0:
-        raise RuntimeError(f"override 生成失败:\n{proc.stderr}")
-    return json.loads(proc.stdout)
+
+
+def gen_pretask_args(
+    pretask_name: str,
+    option_values: dict | None = None,
+    *,
+    controller_name: str = DEFAULT_CONTROLLER,
+    resource_name: str = DEFAULT_RESOURCE,
+    assets_dir: Path | str = DEFAULT_ASSETS,
+) -> dict:
+    """生成某个 pretask 的完整启动参数。
+
+    pretask 与普通任务的本质区别
+    ----------------------------
+    - **不进 Tasker 队列**，没有 entry，也没有 pipeline
+    - 是**直接启动外部程序**（MaaEnd 的 pretask = ``agent/go-service --pretask GameSetting``）
+    - 参数 = interface.json 里的固定 ``args`` + **序列化后的 option JSON**
+      （单行紧凑 JSON，作为最后一个参数追加）
+
+    返回 ``{"name": ..., "exec": ..., "args": [...]}``；exec 可能是相对路径
+    （如 ``agent/go-service``），调用方需按 MaaEnd 根目录解析成绝对路径。
+    """
+    return _pb.gen_pretask_args(
+        pretask_name,
+        option_values or {},
+        load_interface(assets_dir),
+        controller_name,
+        resource_name,
+    )
 
 
 def merge_overrides(overrides: list[dict]) -> dict:
@@ -126,19 +143,7 @@ def merge_overrides(overrides: list[dict]) -> dict:
     实测：合并后 `AutoStockpileAttach.attach` =
     `{"server_time": 8, "allow_data_upload": true, "min_buy": true}`，三个键全部保留。
     """
-    result: dict = {}
-    for src in overrides:
-        for k, v in src.items():
-            if (
-                isinstance(v, dict)
-                and not isinstance(v, list)
-                and isinstance(result.get(k), dict)
-                and not isinstance(result[k], list)
-            ):
-                result[k] = merge_overrides([result[k], v])
-            else:
-                result[k] = v
-    return result
+    return _po.deep_merge_objects(*overrides) if overrides else {}
 
 
 def gen_override_object(*args, **kwargs) -> dict:

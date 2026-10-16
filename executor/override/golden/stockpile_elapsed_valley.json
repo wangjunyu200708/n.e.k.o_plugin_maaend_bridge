@@ -1,12 +1,4 @@
 {
-  "case": "stockpile_elapsed_valley",
-  "task": "AutoStockpile",
-  "options": {
-    "AutoStockpileElasticValleyIV": {
-      "type": "switch",
-      "value": true
-    }
-  },
   "array_form": [
     {
       "EnterCameraModeLongPress": {
@@ -223,6 +215,14 @@
     },
     "AutoStockpileElasticWuling": {
       "enabled": true
+    }
+  },
+  "case": "stockpile_elapsed_valley",
+  "task": "AutoStockpile",
+  "options": {
+    "AutoStockpileElasticValleyIV": {
+      "type": "switch",
+      "value": true
     }
   }
 }

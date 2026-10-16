@@ -173,18 +173,28 @@ def resolve_interpreter(
     return "", "none of these can import maa: " + "; ".join(tried[:4])
 
 
-def resolve_node() -> str:
-    """``node`` for the override compiler, or ``""``.
+# The override compiler's runtime files. It used to shell out to Node, which
+# made "is Node installed" the question worth asking; it is a pure-Python port
+# now (see executor/override/SOURCE.txt), so the question became "are its own
+# files there" — a better one, because that can actually be wrong in a way that
+# stays invisible: a partial copy or a hand-deleted module makes every task run
+# with default options and report nothing.
+OVERRIDE_RUNTIME_FILES = (
+    "pipeline_override.py",
+    "pretask_builder.py",
+    "data.json",
+    "build_interface.py",
+)
 
-    The compiler is the one part of the executor that shells out to Node
-    (``override/override_gen.py``); Node 22.6+ is needed for native TypeScript.
-    Only used for the diagnostics the panel shows, so no version check here —
-    the compiler itself reports a version problem far better than we could.
-    """
-    for candidate in ("C:/Program Files/nodejs/node.exe", shutil.which("node") or ""):
-        if candidate and Path(candidate).is_file():
-            return candidate
-    return ""
+
+def override_compiler_problems(executor: Path) -> List[str]:
+    """Missing pieces of the override compiler. Empty means it looks complete."""
+    override = Path(executor) / "override"
+    return [
+        f"缺少 override/{name}"
+        for name in OVERRIDE_RUNTIME_FILES
+        if not (override / name).is_file()
+    ]
 
 
 def is_elevated() -> bool:
@@ -321,11 +331,15 @@ def manual_launcher_path(executor: Path) -> str:
 
 def describe(executor: Path, *, configured: str = "") -> dict:
     """A diagnostics blob for the plugin panel. Never raises."""
+    override_problems = override_compiler_problems(executor)
     info: dict = {
         "executor_dir": str(executor),
         "executor_present": (Path(executor) / "panel_server.py").is_file(),
-        "override_present": (Path(executor) / "override" / "cli.ts").is_file(),
-        "node": resolve_node(),
+        # The compiler is pure Python now, so "present" means *its* files are
+        # there. Checking the old Node entry point (`override/cli.ts`) would
+        # report a healthy compiler for a directory that cannot compile.
+        "override_present": not override_problems,
+        "override_problems": override_problems,
         "python_hint": read_python_hint(executor),
         "python_ok": False,
         "python_reason": "",
@@ -356,9 +370,9 @@ __all__ = [
     "is_elevated",
     "launch_elevated",
     "manual_launcher_path",
+    "override_compiler_problems",
     "probe_interpreter",
     "read_python_hint",
     "resolve_interpreter",
-    "resolve_node",
     "write_python_hint",
 ]

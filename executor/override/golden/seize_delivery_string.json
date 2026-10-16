@@ -1,0 +1,294 @@
+{
+  "array_form": [
+    {
+      "AutoDeliveryDeliveryMissionNotFound": {
+        "anchor": {
+          "SeizeDeliveryJobsAfterMissionListExhausted": "SeizeDeliveryJobsNoOngoingJob"
+        }
+      }
+    },
+    {
+      "EnterCameraModeLongPress": {
+        "key": 82
+      },
+      "EnterCameraModeKeyUp": {
+        "key": 82
+      },
+      "_AutoEcoFarmEnterCameraModeFallback": {
+        "key": 82
+      },
+      "_AutoEcoFarmEnterCameraModeFallbackRelease": {
+        "key": 82
+      },
+      "_AutoEcoFarmEnterCameraModeFallbackReleaseOnError": {
+        "key": 82
+      },
+      "AutoCollectClick": {
+        "key": 70
+      },
+      "MapNavigatorInteract": {
+        "key": 70
+      },
+      "AutoSellPressStockRedistribution": {
+        "key": 70
+      },
+      "AutoPickFalls": {
+        "key": 70
+      },
+      "AutoPickInteractive": {
+        "key": 70
+      },
+      "ProtocolSpaceTouchExitTouch": {
+        "key": 70
+      },
+      "ProtocolSpaceTouchExitTouchRetry": {
+        "key": 70
+      }
+    },
+    {
+      "__AutoFightActionComboClick": {
+        "key": 69
+      },
+      "__AutoFightActionSkillOperators1": {
+        "key": 49
+      },
+      "__AutoFightActionSkillOperators2": {
+        "key": 50
+      },
+      "__AutoFightActionSkillOperators3": {
+        "key": 51
+      },
+      "__AutoFightActionSkillOperators4": {
+        "key": 52
+      },
+      "__AutoFightActionEndSkillOperators1": {
+        "key": 49
+      },
+      "__AutoFightActionEndSkillOperators2": {
+        "key": 50
+      },
+      "__AutoFightActionEndSkillOperators3": {
+        "key": 51
+      },
+      "__AutoFightActionEndSkillOperators4": {
+        "key": 52
+      },
+      "__AutoFightActionSwitchCharacterOperators1": {
+        "key": 112
+      },
+      "__AutoFightActionSwitchCharacterOperators2": {
+        "key": 113
+      },
+      "__AutoFightActionSwitchCharacterOperators3": {
+        "key": 114
+      },
+      "__AutoFightActionSwitchCharacterOperators4": {
+        "key": 115
+      }
+    },
+    {
+      "MapNavigatorZiplinePreference": {
+        "attach": {
+          "zipline": "auto"
+        }
+      }
+    },
+    {
+      "__SeizeDeliveryJobsMinReward": {
+        "expected": [
+          "30"
+        ]
+      }
+    },
+    {
+      "SeizeDeliveryJobsRefreshHit": {
+        "max_hit": 250
+      }
+    },
+    {
+      "__SeizeDeliveryJobsRecoOrigin": {
+        "expected": [
+          "武陵城",
+          "Wuling City",
+          "무릉성",
+          "试验园区",
+          "實驗園區",
+          "Test Area",
+          "実験区域",
+          "실험 구역"
+        ]
+      },
+      "SeizeDeliveryJobsMain": {
+        "next": [
+          "SeizeDeliveryJobsEnterWulingJobList"
+        ]
+      },
+      "SeizeDeliveryJobsReadyToSeize": {
+        "next": [
+          "SeizeDeliveryJobsFailedChanceExhausted",
+          "SeizeDeliveryJobsPrepareAtDijiang",
+          "SeizeDeliveryJobsJobListIsWulingFilter",
+          "SeizeDeliveryJobsJobListSelectWulingFilterPre"
+        ]
+      },
+      "SeizeDeliveryJobsPrepareAtDijiang": {
+        "next": [
+          "SeizeDeliveryJobsEnterWulingJobList"
+        ]
+      },
+      "SeizeDeliveryJobsReadyAfterDijiangTeleport": {
+        "next": [
+          "SeizeDeliveryJobsJobListIsWulingFilter",
+          "SeizeDeliveryJobsJobListSelectWulingFilterPre"
+        ]
+      }
+    }
+  ],
+  "merged_form": {
+    "AutoDeliveryDeliveryMissionNotFound": {
+      "anchor": {
+        "SeizeDeliveryJobsAfterMissionListExhausted": "SeizeDeliveryJobsNoOngoingJob"
+      }
+    },
+    "EnterCameraModeLongPress": {
+      "key": 82
+    },
+    "EnterCameraModeKeyUp": {
+      "key": 82
+    },
+    "_AutoEcoFarmEnterCameraModeFallback": {
+      "key": 82
+    },
+    "_AutoEcoFarmEnterCameraModeFallbackRelease": {
+      "key": 82
+    },
+    "_AutoEcoFarmEnterCameraModeFallbackReleaseOnError": {
+      "key": 82
+    },
+    "AutoCollectClick": {
+      "key": 70
+    },
+    "MapNavigatorInteract": {
+      "key": 70
+    },
+    "AutoSellPressStockRedistribution": {
+      "key": 70
+    },
+    "AutoPickFalls": {
+      "key": 70
+    },
+    "AutoPickInteractive": {
+      "key": 70
+    },
+    "ProtocolSpaceTouchExitTouch": {
+      "key": 70
+    },
+    "ProtocolSpaceTouchExitTouchRetry": {
+      "key": 70
+    },
+    "__AutoFightActionComboClick": {
+      "key": 69
+    },
+    "__AutoFightActionSkillOperators1": {
+      "key": 49
+    },
+    "__AutoFightActionSkillOperators2": {
+      "key": 50
+    },
+    "__AutoFightActionSkillOperators3": {
+      "key": 51
+    },
+    "__AutoFightActionSkillOperators4": {
+      "key": 52
+    },
+    "__AutoFightActionEndSkillOperators1": {
+      "key": 49
+    },
+    "__AutoFightActionEndSkillOperators2": {
+      "key": 50
+    },
+    "__AutoFightActionEndSkillOperators3": {
+      "key": 51
+    },
+    "__AutoFightActionEndSkillOperators4": {
+      "key": 52
+    },
+    "__AutoFightActionSwitchCharacterOperators1": {
+      "key": 112
+    },
+    "__AutoFightActionSwitchCharacterOperators2": {
+      "key": 113
+    },
+    "__AutoFightActionSwitchCharacterOperators3": {
+      "key": 114
+    },
+    "__AutoFightActionSwitchCharacterOperators4": {
+      "key": 115
+    },
+    "MapNavigatorZiplinePreference": {
+      "attach": {
+        "zipline": "auto"
+      }
+    },
+    "__SeizeDeliveryJobsMinReward": {
+      "expected": [
+        "30"
+      ]
+    },
+    "SeizeDeliveryJobsRefreshHit": {
+      "max_hit": 250
+    },
+    "__SeizeDeliveryJobsRecoOrigin": {
+      "expected": [
+        "武陵城",
+        "Wuling City",
+        "무릉성",
+        "试验园区",
+        "實驗園區",
+        "Test Area",
+        "実験区域",
+        "실험 구역"
+      ]
+    },
+    "SeizeDeliveryJobsMain": {
+      "next": [
+        "SeizeDeliveryJobsEnterWulingJobList"
+      ]
+    },
+    "SeizeDeliveryJobsReadyToSeize": {
+      "next": [
+        "SeizeDeliveryJobsFailedChanceExhausted",
+        "SeizeDeliveryJobsPrepareAtDijiang",
+        "SeizeDeliveryJobsJobListIsWulingFilter",
+        "SeizeDeliveryJobsJobListSelectWulingFilterPre"
+      ]
+    },
+    "SeizeDeliveryJobsPrepareAtDijiang": {
+      "next": [
+        "SeizeDeliveryJobsEnterWulingJobList"
+      ]
+    },
+    "SeizeDeliveryJobsReadyAfterDijiangTeleport": {
+      "next": [
+        "SeizeDeliveryJobsJobListIsWulingFilter",
+        "SeizeDeliveryJobsJobListSelectWulingFilterPre"
+      ]
+    }
+  },
+  "case": "seize_delivery_string",
+  "task": "SeizeDeliveryJobs",
+  "options": {
+    "SeizeDeliveryJobsReward": {
+      "type": "input",
+      "values": {
+        "Reward": "30"
+      }
+    },
+    "SeizeDeliveryJobsRefreshLimit": {
+      "type": "input",
+      "values": {
+        "Limit": "250"
+      }
+    }
+  }
+}

@@ -1,7 +1,4 @@
 {
-  "case": "default_credit_shopping",
-  "task": "CreditShoppingN2",
-  "options": {},
   "array_form": [
     {
       "ReceptionRoomCollectClues": {
@@ -1177,5 +1174,8 @@
         "CreditShoppingBuyConfirm"
       ]
     }
-  }
+  },
+  "case": "default_credit_shopping",
+  "task": "CreditShoppingN2",
+  "options": {}
 }

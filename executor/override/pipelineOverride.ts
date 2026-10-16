@@ -42,7 +42,7 @@ const isOptionIncompatible = (
 /**
  * 递归处理选项的 pipeline_override，收集到数组中
  */
-const HOTKEY_KEY_MAP: Record<string, Record<string, number>> = {
+export const HOTKEY_KEY_MAP: Record<string, Record<string, number>> = {
   Win32: {
     BACKSPACE: 0x08,
     TAB: 0x09,

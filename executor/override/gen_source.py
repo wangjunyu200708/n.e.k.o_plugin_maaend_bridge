@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
-"""生成 override/SOURCE.txt —— 锁定复用的 MXU 源文件版本与哈希。
+"""生成 override/SOURCE.txt —— 记录 TS 源的版本、哈希与升级流程。
 
 MXU 上游升级后重跑本脚本，能立刻看出哪些文件变了。
+
+注意分工：**这些 .ts 文件不参与运行时**。它们只在两处用到 ——
+``dump_data.ts`` 导出数据表（``data.json``），以及 ``golden_test.py
+--compare/--update`` 生成/校验对照组。运行时是 ``pipeline_override.py`` /
+``pretask_builder.py`` 两个纯 Python 实现。
 """
 from __future__ import annotations
 
@@ -14,20 +19,31 @@ SRC = Path(r"E:/MaaEnddm/MXU-2.7.1/MXU-2.7.1")
 OUT = Path(__file__).resolve().parent / "SOURCE.txt"
 
 FILES = [
-    ("src/utils/pipelineOverride.ts", "原样复用"),
-    ("src/utils/optionHelpers.ts", "原样复用"),
-    ("src/types/specialTasks.ts", "原样复用（仅 import type）"),
-    ("src/stores/helpers.ts", "原样复用（仅 import type）"),
-    ("src/utils/logger.ts", "替换为 stub（依赖 loglevel + Tauri paths）"),
+    ("src/utils/pipelineOverride.ts", "升级工具 → dump_data.ts"),
+    ("src/utils/optionHelpers.ts", "升级工具"),
+    ("src/types/specialTasks.ts", "升级工具 → dump_data.ts"),
+    ("src/stores/helpers.ts", "升级工具"),
+    ("src/types/pretasks.ts", "升级工具（pretask 参数构造的参考实现）"),
+    ("src/utils/logger.ts", "已弃用（Python 版不需要）"),
 ]
 
-STEPS = """## 升级 MXU 时的流程
+STEPS = """## 运行时依赖什么
 
-1. 重新拷贝前 4 个文件到本目录（`logger.ts` 继续用 stub）
-2. 重跑 sed 改写：`@/` 别名 -> 相对路径；`import './x'` -> `import './x.ts'`（ESM 必须带扩展名）
-3. `python golden_test.py --update` 重新生成快照
-4. **人工 review 差异** —— 这就是上游带来的行为变化，不是回归
-5. 重跑 `python gen_source.py` 更新本文件的哈希
+**只需要 Python。** `pipeline_override.py` + `pretask_builder.py` + `data.json`
+三者即全部运行时依赖，没有任何外部进程。
+
+本目录下的 `.ts` 文件**不参与运行时**，它们只在维护时用到。
+
+## MXU 升级流程
+
+1. 重新拷贝上表文件到本目录
+2. 改写 import：`@/` -> 相对路径；`import './x'` -> `import './x.ts'`
+3. 给 `pipelineOverride.ts` 的 `HOTKEY_KEY_MAP` 保持 `export`（dump_data.ts 要读）
+4. `node dump_data.ts > data.json`          重新导出数据表
+5. `python golden_test.py --compare`       Node 与 Python 逐节点比对
+6. 逐个核对差异 → 修 `pipeline_override.py`，或接受上游变更
+7. `python golden_test.py --update`        用 TS 版重生成快照
+8. `python gen_source.py`                  更新本文件的哈希
 """
 
 
@@ -37,16 +53,24 @@ def main() -> None:
     m = [p for p in SRC.parents if p.name.upper().startswith("MXU-")]
     version = m[0].name if m else pkg.get("version", "?")
     lines = [
-        "# 复用自 MXU 前端的文件清单",
+        "# MXU 源文件清单与运行时依赖",
         "",
-        "本目录下的 TypeScript 文件**不是本项目写的**，是从 MXU 前端原样复制的。",
-        "option -> pipeline_override 的编译逻辑以此保证与官方前端一致。",
+        "## 结论：运行时零外部依赖",
+        "",
+        "override 编译器已从「Node 跑 TS」移植为纯 Python。运行只需要",
+        "`pipeline_override.py` + `pretask_builder.py` + `data.json`。",
+        "",
+        "分发时**不需要**携带 Node（87 MB），终端用户也不用装任何东西。",
+        "",
+        "下表的 `.ts` 仅在维护 MXU 升级时使用：",
+        "`dump_data.ts` 从它们导出 `data.json`；`golden_test.py --compare/--update`",
+        "用 TS 实现当对照组。",
         "",
         f"- 来源仓库: `{SRC}`",
         f"- MXU 版本: `{version}`（package.json 为占位值 `{pkg.get('version')}`）",
         f"- 记录时间: `{time.strftime('%Y-%m-%d %H:%M:%S')}`",
         "",
-        "| 文件 | 处理方式 | 行数 | sha256(前16位) |",
+        "| 文件 | 用途 | 行数 | sha256(前16位) |",
         "|---|---|---|---|",
     ]
     for rel, note in FILES:

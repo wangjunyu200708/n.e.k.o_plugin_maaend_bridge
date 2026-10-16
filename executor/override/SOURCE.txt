@@ -1,24 +1,43 @@
-# 复用自 MXU 前端的文件清单
+# MXU 源文件清单与运行时依赖
 
-本目录下的 TypeScript 文件**不是本项目写的**，是从 MXU 前端原样复制的。
-option -> pipeline_override 的编译逻辑以此保证与官方前端一致。
+## 结论：运行时零外部依赖
+
+override 编译器已从「Node 跑 TS」移植为纯 Python。运行只需要
+`pipeline_override.py` + `pretask_builder.py` + `data.json`。
+
+分发时**不需要**携带 Node（87 MB），终端用户也不用装任何东西。
+
+下表的 `.ts` 仅在维护 MXU 升级时使用：
+`dump_data.ts` 从它们导出 `data.json`；`golden_test.py --compare/--update`
+用 TS 实现当对照组。
 
 - 来源仓库: `E:\MaaEnddm\MXU-2.7.1\MXU-2.7.1`
 - MXU 版本: `MXU-2.7.1`（package.json 为占位值 `0.1.0`）
-- 记录时间: `2026-10-15 20:01:11`
+- 记录时间: `2026-10-16 08:10:22`
 
-| 文件 | 处理方式 | 行数 | sha256(前16位) |
+| 文件 | 用途 | 行数 | sha256(前16位) |
 |---|---|---|---|
-| `src/utils/pipelineOverride.ts` | 原样复用 | 692 | `963aba356ae8847b` |
-| `src/utils/optionHelpers.ts` | 原样复用 | 25 | `545287d6586c6761` |
-| `src/types/specialTasks.ts` | 原样复用（仅 import type） | 705 | `480e80fae0a8a559` |
-| `src/stores/helpers.ts` | 原样复用（仅 import type） | 253 | `83ef34b13a13ce8a` |
-| `src/utils/logger.ts` | 替换为 stub（依赖 loglevel + Tauri paths） | 204 | `0e4436541b400e5b` |
+| `src/utils/pipelineOverride.ts` | 升级工具 → dump_data.ts | 692 | `963aba356ae8847b` |
+| `src/utils/optionHelpers.ts` | 升级工具 | 25 | `545287d6586c6761` |
+| `src/types/specialTasks.ts` | 升级工具 → dump_data.ts | 705 | `480e80fae0a8a559` |
+| `src/stores/helpers.ts` | 升级工具 | 253 | `83ef34b13a13ce8a` |
+| `src/types/pretasks.ts` | 升级工具（pretask 参数构造的参考实现） | 229 | `2d2eab9e8bed1b8d` |
+| `src/utils/logger.ts` | 已弃用（Python 版不需要） | 204 | `0e4436541b400e5b` |
 
-## 升级 MXU 时的流程
+## 运行时依赖什么
 
-1. 重新拷贝前 4 个文件到本目录（`logger.ts` 继续用 stub）
-2. 重跑 sed 改写：`@/` 别名 -> 相对路径；`import './x'` -> `import './x.ts'`（ESM 必须带扩展名）
-3. `python golden_test.py --update` 重新生成快照
-4. **人工 review 差异** —— 这就是上游带来的行为变化，不是回归
-5. 重跑 `python gen_source.py` 更新本文件的哈希
+**只需要 Python。** `pipeline_override.py` + `pretask_builder.py` + `data.json`
+三者即全部运行时依赖，没有任何外部进程。
+
+本目录下的 `.ts` 文件**不参与运行时**，它们只在维护时用到。
+
+## MXU 升级流程
+
+1. 重新拷贝上表文件到本目录
+2. 改写 import：`@/` -> 相对路径；`import './x'` -> `import './x.ts'`
+3. 给 `pipelineOverride.ts` 的 `HOTKEY_KEY_MAP` 保持 `export`（dump_data.ts 要读）
+4. `node dump_data.ts > data.json`          重新导出数据表
+5. `python golden_test.py --compare`       Node 与 Python 逐节点比对
+6. 逐个核对差异 → 修 `pipeline_override.py`，或接受上游变更
+7. `python golden_test.py --update`        用 TS 版重生成快照
+8. `python gen_source.py`                  更新本文件的哈希

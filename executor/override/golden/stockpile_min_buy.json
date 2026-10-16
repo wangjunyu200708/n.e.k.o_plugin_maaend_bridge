@@ -1,12 +1,4 @@
 {
-  "case": "stockpile_min_buy",
-  "task": "AutoStockpile",
-  "options": {
-    "AutoStockpileMinBuy": {
-      "type": "switch",
-      "value": true
-    }
-  },
   "array_form": [
     {
       "EnterCameraModeLongPress": {
@@ -231,6 +223,14 @@
     },
     "AutoStockpileElasticWuling": {
       "enabled": true
+    }
+  },
+  "case": "stockpile_min_buy",
+  "task": "AutoStockpile",
+  "options": {
+    "AutoStockpileMinBuy": {
+      "type": "switch",
+      "value": true
     }
   }
 }

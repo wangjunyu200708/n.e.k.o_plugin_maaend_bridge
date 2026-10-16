@@ -1,16 +1,4 @@
 {
-  "case": "stockpile_server_time",
-  "task": "AutoStockpile",
-  "options": {
-    "AutoStockpileMinBuy": {
-      "type": "switch",
-      "value": true
-    },
-    "AutoStockpileServerTime": {
-      "type": "select",
-      "caseName": "CN_UTC_PLUS_8"
-    }
-  },
   "array_form": [
     {
       "EnterCameraModeLongPress": {
@@ -235,6 +223,18 @@
     },
     "AutoStockpileElasticWuling": {
       "enabled": true
+    }
+  },
+  "case": "stockpile_server_time",
+  "task": "AutoStockpile",
+  "options": {
+    "AutoStockpileMinBuy": {
+      "type": "switch",
+      "value": true
+    },
+    "AutoStockpileServerTime": {
+      "type": "select",
+      "caseName": "CN_UTC_PLUS_8"
     }
   }
 }

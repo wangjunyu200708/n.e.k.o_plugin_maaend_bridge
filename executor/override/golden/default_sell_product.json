@@ -1,0 +1,397 @@
+{
+  "array_form": [
+    {
+      "EnterCameraModeLongPress": {
+        "key": 82
+      },
+      "EnterCameraModeKeyUp": {
+        "key": 82
+      },
+      "_AutoEcoFarmEnterCameraModeFallback": {
+        "key": 82
+      },
+      "_AutoEcoFarmEnterCameraModeFallbackRelease": {
+        "key": 82
+      },
+      "_AutoEcoFarmEnterCameraModeFallbackReleaseOnError": {
+        "key": 82
+      },
+      "AutoCollectClick": {
+        "key": 70
+      },
+      "MapNavigatorInteract": {
+        "key": 70
+      },
+      "AutoSellPressStockRedistribution": {
+        "key": 70
+      },
+      "AutoPickFalls": {
+        "key": 70
+      },
+      "AutoPickInteractive": {
+        "key": 70
+      },
+      "ProtocolSpaceTouchExitTouch": {
+        "key": 70
+      },
+      "ProtocolSpaceTouchExitTouchRetry": {
+        "key": 70
+      }
+    },
+    {
+      "__AutoFightActionComboClick": {
+        "key": 69
+      },
+      "__AutoFightActionSkillOperators1": {
+        "key": 49
+      },
+      "__AutoFightActionSkillOperators2": {
+        "key": 50
+      },
+      "__AutoFightActionSkillOperators3": {
+        "key": 51
+      },
+      "__AutoFightActionSkillOperators4": {
+        "key": 52
+      },
+      "__AutoFightActionEndSkillOperators1": {
+        "key": 49
+      },
+      "__AutoFightActionEndSkillOperators2": {
+        "key": 50
+      },
+      "__AutoFightActionEndSkillOperators3": {
+        "key": 51
+      },
+      "__AutoFightActionEndSkillOperators4": {
+        "key": 52
+      },
+      "__AutoFightActionSwitchCharacterOperators1": {
+        "key": 112
+      },
+      "__AutoFightActionSwitchCharacterOperators2": {
+        "key": 113
+      },
+      "__AutoFightActionSwitchCharacterOperators3": {
+        "key": 114
+      },
+      "__AutoFightActionSwitchCharacterOperators4": {
+        "key": 115
+      }
+    },
+    {
+      "MapNavigatorZiplinePreference": {
+        "attach": {
+          "zipline": "auto"
+        }
+      }
+    },
+    {
+      "OutpostTradingScheduleEnabled": {
+        "attach": {
+          "monday": true
+        }
+      }
+    },
+    {
+      "OutpostTradingScheduleEnabled": {
+        "attach": {
+          "tuesday": true
+        }
+      }
+    },
+    {
+      "OutpostTradingScheduleEnabled": {
+        "attach": {
+          "wednesday": true
+        }
+      }
+    },
+    {
+      "OutpostTradingScheduleEnabled": {
+        "attach": {
+          "thursday": true
+        }
+      }
+    },
+    {
+      "OutpostTradingScheduleEnabled": {
+        "attach": {
+          "friday": true
+        }
+      }
+    },
+    {
+      "OutpostTradingScheduleEnabled": {
+        "attach": {
+          "saturday": true
+        }
+      }
+    },
+    {
+      "OutpostTradingScheduleEnabled": {
+        "attach": {
+          "sunday": true
+        }
+      }
+    },
+    {
+      "OutpostTradingConfigureSelectionStrategy": {
+        "custom_action_param": {
+          "operation": "configure_strategy",
+          "strategy": "rarity"
+        }
+      }
+    },
+    {
+      "OutpostTradingValleyIV": {
+        "enabled": true
+      }
+    },
+    {
+      "OutpostTradingRefugeeCamp": {
+        "enabled": true
+      },
+      "OutpostTradingRegisterLocationRefugeeCamp": {
+        "custom_action_param": {
+          "operation": "register",
+          "location": "RefugeeCamp",
+          "active": true
+        }
+      }
+    },
+    {
+      "OutpostTradingInfraStation": {
+        "enabled": true
+      },
+      "OutpostTradingRegisterLocationInfraStation": {
+        "custom_action_param": {
+          "operation": "register",
+          "location": "InfraStation",
+          "active": true
+        }
+      }
+    },
+    {
+      "OutpostTradingReconstructionHQ": {
+        "enabled": true
+      },
+      "OutpostTradingRegisterLocationReconstructionHQ": {
+        "custom_action_param": {
+          "operation": "register",
+          "location": "ReconstructionHQ",
+          "active": true
+        }
+      }
+    },
+    {
+      "OutpostTradingWuling": {
+        "enabled": true
+      }
+    },
+    {
+      "OutpostTradingSkyKingFlatsConstructionSite": {
+        "enabled": true
+      },
+      "OutpostTradingRegisterLocationSkyKingFlatsConstructionSite": {
+        "custom_action_param": {
+          "operation": "register",
+          "location": "SkyKingFlatsConstructionSite",
+          "active": true
+        }
+      }
+    },
+    {
+      "OutpostTradingCardiacRemediationStation": {
+        "enabled": true
+      },
+      "OutpostTradingRegisterLocationCardiacRemediationStation": {
+        "custom_action_param": {
+          "operation": "register",
+          "location": "CardiacRemediationStation",
+          "active": true
+        }
+      }
+    },
+    {
+      "OutpostTradingXiranflowCloudseederStation": {
+        "enabled": true
+      },
+      "OutpostTradingRegisterLocationXiranflowCloudseederStation": {
+        "custom_action_param": {
+          "operation": "register",
+          "location": "XiranflowCloudseederStation",
+          "active": true
+        }
+      }
+    }
+  ],
+  "merged_form": {
+    "EnterCameraModeLongPress": {
+      "key": 82
+    },
+    "EnterCameraModeKeyUp": {
+      "key": 82
+    },
+    "_AutoEcoFarmEnterCameraModeFallback": {
+      "key": 82
+    },
+    "_AutoEcoFarmEnterCameraModeFallbackRelease": {
+      "key": 82
+    },
+    "_AutoEcoFarmEnterCameraModeFallbackReleaseOnError": {
+      "key": 82
+    },
+    "AutoCollectClick": {
+      "key": 70
+    },
+    "MapNavigatorInteract": {
+      "key": 70
+    },
+    "AutoSellPressStockRedistribution": {
+      "key": 70
+    },
+    "AutoPickFalls": {
+      "key": 70
+    },
+    "AutoPickInteractive": {
+      "key": 70
+    },
+    "ProtocolSpaceTouchExitTouch": {
+      "key": 70
+    },
+    "ProtocolSpaceTouchExitTouchRetry": {
+      "key": 70
+    },
+    "__AutoFightActionComboClick": {
+      "key": 69
+    },
+    "__AutoFightActionSkillOperators1": {
+      "key": 49
+    },
+    "__AutoFightActionSkillOperators2": {
+      "key": 50
+    },
+    "__AutoFightActionSkillOperators3": {
+      "key": 51
+    },
+    "__AutoFightActionSkillOperators4": {
+      "key": 52
+    },
+    "__AutoFightActionEndSkillOperators1": {
+      "key": 49
+    },
+    "__AutoFightActionEndSkillOperators2": {
+      "key": 50
+    },
+    "__AutoFightActionEndSkillOperators3": {
+      "key": 51
+    },
+    "__AutoFightActionEndSkillOperators4": {
+      "key": 52
+    },
+    "__AutoFightActionSwitchCharacterOperators1": {
+      "key": 112
+    },
+    "__AutoFightActionSwitchCharacterOperators2": {
+      "key": 113
+    },
+    "__AutoFightActionSwitchCharacterOperators3": {
+      "key": 114
+    },
+    "__AutoFightActionSwitchCharacterOperators4": {
+      "key": 115
+    },
+    "MapNavigatorZiplinePreference": {
+      "attach": {
+        "zipline": "auto"
+      }
+    },
+    "OutpostTradingScheduleEnabled": {
+      "attach": {
+        "monday": true,
+        "tuesday": true,
+        "wednesday": true,
+        "thursday": true,
+        "friday": true,
+        "saturday": true,
+        "sunday": true
+      }
+    },
+    "OutpostTradingConfigureSelectionStrategy": {
+      "custom_action_param": {
+        "operation": "configure_strategy",
+        "strategy": "rarity"
+      }
+    },
+    "OutpostTradingValleyIV": {
+      "enabled": true
+    },
+    "OutpostTradingRefugeeCamp": {
+      "enabled": true
+    },
+    "OutpostTradingRegisterLocationRefugeeCamp": {
+      "custom_action_param": {
+        "operation": "register",
+        "location": "RefugeeCamp",
+        "active": true
+      }
+    },
+    "OutpostTradingInfraStation": {
+      "enabled": true
+    },
+    "OutpostTradingRegisterLocationInfraStation": {
+      "custom_action_param": {
+        "operation": "register",
+        "location": "InfraStation",
+        "active": true
+      }
+    },
+    "OutpostTradingReconstructionHQ": {
+      "enabled": true
+    },
+    "OutpostTradingRegisterLocationReconstructionHQ": {
+      "custom_action_param": {
+        "operation": "register",
+        "location": "ReconstructionHQ",
+        "active": true
+      }
+    },
+    "OutpostTradingWuling": {
+      "enabled": true
+    },
+    "OutpostTradingSkyKingFlatsConstructionSite": {
+      "enabled": true
+    },
+    "OutpostTradingRegisterLocationSkyKingFlatsConstructionSite": {
+      "custom_action_param": {
+        "operation": "register",
+        "location": "SkyKingFlatsConstructionSite",
+        "active": true
+      }
+    },
+    "OutpostTradingCardiacRemediationStation": {
+      "enabled": true
+    },
+    "OutpostTradingRegisterLocationCardiacRemediationStation": {
+      "custom_action_param": {
+        "operation": "register",
+        "location": "CardiacRemediationStation",
+        "active": true
+      }
+    },
+    "OutpostTradingXiranflowCloudseederStation": {
+      "enabled": true
+    },
+    "OutpostTradingRegisterLocationXiranflowCloudseederStation": {
+      "custom_action_param": {
+        "operation": "register",
+        "location": "XiranflowCloudseederStation",
+        "active": true
+      }
+    }
+  },
+  "case": "default_sell_product",
+  "task": "SellProduct",
+  "options": {}
+}

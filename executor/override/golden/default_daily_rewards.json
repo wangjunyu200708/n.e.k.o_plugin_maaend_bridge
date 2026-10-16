@@ -1,7 +1,4 @@
 {
-  "case": "default_daily_rewards",
-  "task": "DailyRewards",
-  "options": {},
   "array_form": [
     {
       "EnterCameraModeLongPress": {
@@ -243,5 +240,8 @@
     "DailyProtocolPassRewardSub": {
       "enabled": true
     }
-  }
+  },
+  "case": "default_daily_rewards",
+  "task": "DailyRewards",
+  "options": {}
 }

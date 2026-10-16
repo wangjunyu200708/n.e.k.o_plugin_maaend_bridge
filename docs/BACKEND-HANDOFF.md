@@ -136,8 +136,11 @@ snapshot["executor"] = await asyncio.to_thread(
 ```
 
 `launcher.describe()` 已经产出界面要的全部字段：
-`executor_present` / `python_ok` / `python` / `python_reason` / `node` /
-`manual_launcher` / `plugin_elevated`。
+`executor_present` / `override_present` / `override_problems` / `python_ok` /
+`python` / `python_reason` / `manual_launcher` / `plugin_elevated`。
+（早先这里还列了 `node` —— 编译器移植成纯 Python 后那个字段没有了，
+`override_present` 现在查的是 `pipeline_override.py` / `data.json` 这些
+运行时文件在不在，而不是 Node 装没装。）
 
 `describe()` 会跑子进程（`import maa`），所以：**别放进 5 秒一次的状态刷新路径**，
 放进 `maaend_status` 这个 entry 就够了（界面只在未连上时才显示诊断）。它内部有缓存。
